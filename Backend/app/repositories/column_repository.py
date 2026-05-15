@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.column import Column
@@ -26,6 +26,11 @@ class ColumnRepository:
     def list_by_board(self, board_id: str) -> list[Column]:
         stmt = select(Column).where(Column.board_id == board_id).order_by(Column.position)
         return list(self.session.execute(stmt).scalars().all())
+
+    def get_max_position(self, board_id: str) -> int:
+        stmt = select(func.max(Column.position)).where(Column.board_id == board_id)
+        result = self.session.execute(stmt).scalar_one()
+        return int(result or 0)
 
     def update(self, column_id: str, **changes) -> Column | None:
         column = self.get_by_id(column_id)

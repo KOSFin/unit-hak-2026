@@ -1,20 +1,23 @@
 import httpx
+import pytest
 
 from app.core import health as health_module
 from app.core.database import get_engine
 
 
-def test_health_ok(client):
-    response = client.get("/health")
+@pytest.mark.anyio
+async def test_health_ok(async_client):
+    response = await async_client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "backend-api"}
 
 
-def test_ready_ok(app, sqlite_engine):
+@pytest.mark.anyio
+async def test_ready_ok(app, sqlite_engine):
     app.dependency_overrides[get_engine] = lambda: sqlite_engine
     transport = httpx.ASGITransport(app=app)
-    with httpx.Client(transport=transport, base_url="http://test") as client:
-        response = client.get("/ready")
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/ready")
     app.dependency_overrides.clear()
 
     assert response.status_code == 200
@@ -23,12 +26,13 @@ def test_ready_ok(app, sqlite_engine):
     assert payload["checks"]["database"]["ok"] is True
 
 
-def test_ready_db_failure(app, sqlite_engine, monkeypatch):
+@pytest.mark.anyio
+async def test_ready_db_failure(app, sqlite_engine, monkeypatch):
     app.dependency_overrides[get_engine] = lambda: sqlite_engine
     monkeypatch.setattr(health_module, "check_database", lambda engine: (False, "down"))
     transport = httpx.ASGITransport(app=app)
-    with httpx.Client(transport=transport, base_url="http://test") as client:
-        response = client.get("/ready")
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/ready")
     app.dependency_overrides.clear()
 
     assert response.status_code == 503
@@ -68,6 +72,16 @@ def test_check_rabbitmq_failure(monkeypatch):
     ok, error = health_module.check_rabbitmq("localhost", 5672)
     assert ok is False
     assert "nope" in error
+
+
+def test_check_database_failure():
+    class DummyEngine:
+        def connect(self):
+            raise RuntimeError("boom")
+
+    ok, error = health_module.check_database(DummyEngine())
+    assert ok is False
+    assert "boom" in error
 
 
 def test_health_main_worker_ok():

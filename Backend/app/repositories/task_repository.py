@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.task import Task, TaskPriority
@@ -44,6 +44,22 @@ class TaskRepository:
     def list_by_board(self, board_id: str) -> list[Task]:
         stmt = select(Task).where(Task.board_id == board_id).order_by(Task.position)
         return list(self.session.execute(stmt).scalars().all())
+
+    def list_all(self) -> list[Task]:
+        stmt = select(Task).order_by(Task.position)
+        return list(self.session.execute(stmt).scalars().all())
+
+    def get_max_position(self, board_id: str, column_id: str) -> int:
+        stmt = select(func.max(Task.position)).where(
+            Task.board_id == board_id,
+            Task.column_id == column_id,
+        )
+        result = self.session.execute(stmt).scalar_one()
+        return int(result or 0)
+
+    def count_by_column(self, column_id: str) -> int:
+        stmt = select(func.count()).where(Task.column_id == column_id)
+        return int(self.session.execute(stmt).scalar_one())
 
     def update(self, task_id: str, **changes) -> Task | None:
         task = self.get_by_id(task_id)

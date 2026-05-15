@@ -39,8 +39,12 @@ def test_column_repository_crud(db_session):
     column_repo = ColumnRepository(db_session)
     board = board_repo.create(DEFAULT_BOARD_NAME)
 
+    assert column_repo.get_max_position(board.id) == 0
+
     column = column_repo.create(board.id, "To Do", 1, True)
     assert column_repo.get_by_id(column.id) is not None
+
+    assert column_repo.get_max_position(board.id) == 1
 
     columns = column_repo.list_by_board(board.id)
     assert len(columns) == 1
@@ -64,6 +68,9 @@ def test_task_repository_crud(db_session):
     board = board_repo.create(DEFAULT_BOARD_NAME)
     column = column_repo.create(board.id, "To Do", 1, True)
 
+    assert task_repo.get_max_position(board.id, column.id) == 0
+    assert task_repo.count_by_column(column.id) == 0
+
     task = task_repo.create(
         board_id=board.id,
         column_id=column.id,
@@ -76,6 +83,9 @@ def test_task_repository_crud(db_session):
         position=1,
     )
     assert task_repo.get_by_id(task.id) is not None
+
+    assert task_repo.get_max_position(board.id, column.id) == 1
+    assert task_repo.count_by_column(column.id) == 1
 
     tasks = task_repo.list_by_board(board.id)
     assert len(tasks) == 1
