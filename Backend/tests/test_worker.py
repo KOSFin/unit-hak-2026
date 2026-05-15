@@ -1,4 +1,5 @@
 import json
+import runpy
 from datetime import datetime
 
 import httpx
@@ -171,6 +172,19 @@ def test_main_exception(monkeypatch):
 
     conn = MockConnection()
     monkeypatch.setattr("app.worker.main.get_rabbitmq_connection", lambda: conn)
-    
+
     main()
     assert conn.closed is True
+
+
+def test_package_main_entrypoint(monkeypatch):
+    called = False
+
+    def mock_main():
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr("app.worker.main.main", mock_main)
+
+    runpy.run_module("app.worker", run_name="__main__")
+    assert called
