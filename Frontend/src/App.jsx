@@ -20,8 +20,8 @@ import {
 import AdminPanel from './components/AdminPanel/AdminPanel';
 import Board from './components/Board/Board';
 import Layout from './components/Layout/Layout';
-import NotificationsPanel from './components/NotificationsPanel/NotificationsPanel';
 import TaskModal from './components/TaskModal/TaskModal';
+import Modal from './components/Ui/Modal';
 import Toast from './components/Ui/Toast';
 import { createRealtimeSocket } from './realtime/socket';
 
@@ -33,16 +33,72 @@ function sortTasks(tasks) {
   return [...tasks].sort((left, right) => left.position - right.position);
 }
 
+function reorderTasks(tasks, columns, taskId, targetColumnId, targetIndex) {
+  const columnOrder = columns?.map((column) => column.id) ?? [];
+  const buckets = new Map(columnOrder.map((columnId) => [columnId, []]));
+
+  tasks.forEach((task) => {
+    if (!buckets.has(task.column_id)) {
+      buckets.set(task.column_id, []);
+    }
+    buckets.get(task.column_id).push(task);
+  });
+
+  let movingTask = null;
+  let sourceColumnId = null;
+  buckets.forEach((list, columnId) => {
+    const index = list.findIndex((item) => item.id === taskId);
+    if (index !== -1) {
+      movingTask = list[index];
+      sourceColumnId = columnId;
+      list.splice(index, 1);
+    }
+  });
+
+  if (!movingTask) {
+    return tasks;
+  }
+
+  const targetList = buckets.get(targetColumnId) ?? [];
+  const clampedIndex = Math.max(0, Math.min(targetIndex, targetList.length));
+  targetList.splice(clampedIndex, 0, { ...movingTask, column_id: targetColumnId });
+  buckets.set(targetColumnId, targetList);
+
+  const rebuildColumn = (columnId) => {
+    const list = buckets.get(columnId) ?? [];
+    return list.map((item, index) => ({ ...item, position: index + 1 }));
+  };
+
+  const updatedColumns = new Set([sourceColumnId, targetColumnId]);
+  const result = [];
+  columnOrder.forEach((columnId) => {
+    if (updatedColumns.has(columnId)) {
+      result.push(...rebuildColumn(columnId));
+    } else {
+      result.push(...(buckets.get(columnId) ?? []));
+    }
+  });
+
+  buckets.forEach((list, columnId) => {
+    if (!columnOrder.includes(columnId)) {
+      result.push(...list.map((item, index) => ({ ...item, position: index + 1 })));
+    }
+  });
+
+  return result;
+}
+
 export default function App() {
   const [board, setBoard] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [rules, setRules] = useState([]);
   const [incomingTasks, setIncomingTasks] = useState([]);
-  const [mode, setMode] = useState('user');
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [modalState, setModalState] = useState({
     open: false,
     task: null,
@@ -50,6 +106,7 @@ export default function App() {
   });
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
+  const previousConnectionRef = useRef(connectionStatus);
 
   const showToast = (message, tone = 'neutral') => {
     if (toastTimeoutRef.current) {
@@ -142,6 +199,15 @@ export default function App() {
     };
   }, [board?.id, loadBoard, loadIncomingTasks, loadNotifications]);
 
+  useEffect(() => {
+    if (previousConnectionRef.current !== connectionStatus) {
+      if (connectionStatus === 'offline') {
+        showToast('Realtime connection lost. Reconnecting...', 'danger');
+      }
+      previousConnectionRef.current = connectionStatus;
+    }
+  }, [connectionStatus]);
+
   const runAction = async (action, successMessage) => {
     try {
       setBusy(true);
@@ -183,15 +249,29 @@ export default function App() {
     }, 'Task deleted');
   };
 
-  const handleMoveTask = async (task, targetColumnId, position) => {
-    await runAction(async () => {
+  const handleMoveTask = async (task, targetColumnId, targetIndex) => {
+    if (!board?.columns?.length) {
+      return;
+    }
+
+    const previousTasks = tasks;
+    const nextTasks = reorderTasks(tasks, board.columns, task.id, targetColumnId, targetIndex);
+    setTasks(nextTasks);
+
+    try {
+      setBusy(true);
       await moveTask(task.id, {
         column_id: targetColumnId,
-        position,
+        position: targetIndex + 1,
         version: task.version,
       });
       await loadBoard();
-    });
+    } catch (error) {
+      setTasks(previousTasks);
+      showToast(getErrorMessage(error), 'danger');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleCreateColumn = async (title) => {
@@ -267,39 +347,24 @@ export default function App() {
     }, 'Notifications cleared');
   };
 
-  const sidePanel =
-    mode === 'admin' ? (
-      <AdminPanel
-        columns={board?.columns ?? []}
-        rules={rules}
-        incomingTasks={incomingTasks}
-        pending={busy}
-        onCreateColumn={handleCreateColumn}
-        onRenameColumn={handleRenameColumn}
-        onDeleteColumn={handleDeleteColumn}
-        onCreateRule={handleCreateRule}
-        onToggleRule={handleToggleRule}
-        onDeleteRule={handleDeleteRule}
-        onSendDemoTask={handleSendDemoTask}
-      />
-    ) : (
-      <NotificationsPanel
-        notifications={notifications}
-        pending={busy}
-        onMarkRead={handleMarkNotificationRead}
-        onMarkAllRead={handleMarkAllNotificationsRead}
-      />
-    );
-
   return (
     <>
       <Layout
-        connectionStatus={connectionStatus}
-        mode={mode}
-        onModeChange={setMode}
-        onCreateTask={() => setModalState({ open: true, task: null, columnId: board?.columns?.[0]?.id ?? null })}
         boardName={board?.name}
-        sidePanel={sidePanel}
+        notifications={notifications}
+        notificationsOpen={notificationsOpen}
+        pending={busy}
+        onToggleNotifications={() => setNotificationsOpen((current) => !current)}
+        onCloseNotifications={() => setNotificationsOpen(false)}
+        onMarkNotificationRead={handleMarkNotificationRead}
+        onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+        onOpenAdmin={() => {
+          setAdminOpen(true);
+          setNotificationsOpen(false);
+        }}
+        onCreateTask={() =>
+          setModalState({ open: true, task: null, columnId: board?.columns?.[0]?.id ?? null })
+        }
       >
         {loading ? (
           <div>Loading FlowBoard…</div>
@@ -325,6 +390,24 @@ export default function App() {
           onSubmit={handleTaskSubmit}
           onDelete={handleTaskDelete}
         />
+      ) : null}
+
+      {adminOpen ? (
+        <Modal title="Admin" onClose={() => setAdminOpen(false)}>
+          <AdminPanel
+            columns={board?.columns ?? []}
+            rules={rules}
+            incomingTasks={incomingTasks}
+            pending={busy}
+            onCreateColumn={handleCreateColumn}
+            onRenameColumn={handleRenameColumn}
+            onDeleteColumn={handleDeleteColumn}
+            onCreateRule={handleCreateRule}
+            onToggleRule={handleToggleRule}
+            onDeleteRule={handleDeleteRule}
+            onSendDemoTask={handleSendDemoTask}
+          />
+        </Modal>
       ) : null}
 
       <Toast toast={toast} />

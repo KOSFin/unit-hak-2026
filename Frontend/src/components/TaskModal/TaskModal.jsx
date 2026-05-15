@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import Button from '../Ui/Button';
+import Badge from '../Ui/Badge';
 import Input from '../Ui/Input';
 import Modal from '../Ui/Modal';
 import Select from '../Ui/Select';
@@ -9,12 +10,28 @@ import styles from './TaskModal.module.css';
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
+function normalizeTagsInput(value) {
+  const endsWithSpace = /\s$/.test(value);
+  const normalized = value.replace(/[\s,]+/g, ' ').trimStart();
+  if (endsWithSpace && normalized) {
+    return `${normalized} `;
+  }
+  return normalized;
+}
+
+function parseTags(value) {
+  return value
+    .split(/[\s,]+/g)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
 function taskToForm(columns, task) {
   return {
     title: task?.title ?? '',
     description: task?.description ?? '',
     priority: task?.priority ?? 'MEDIUM',
-    tags: (task?.tags ?? []).join(', '),
+    tags: (task?.tags ?? []).join(' '),
     deadline: task?.deadline ? task.deadline.slice(0, 16) : '',
     columnId: task?.column_id ?? columns[0]?.id ?? '',
   };
@@ -36,6 +53,12 @@ export default function TaskModal({
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
+  const handleTagsChange = (event) => {
+    setForm((current) => ({ ...current, tags: normalizeTagsInput(event.target.value) }));
+  };
+
+  const tagPreview = useMemo(() => parseTags(form.tags), [form.tags]);
+
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       setErrors({ title: 'Title is required' });
@@ -48,10 +71,7 @@ export default function TaskModal({
       title: form.title.trim(),
       description: form.description.trim() || null,
       priority: form.priority,
-      tags: form.tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags: parseTags(form.tags),
       deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
     };
 
@@ -110,9 +130,18 @@ export default function TaskModal({
           className={styles.full}
           label="Tags"
           value={form.tags}
-          onChange={handleChange('tags')}
-          placeholder="urgent, backend, auto-progress"
+          onChange={handleTagsChange}
+          placeholder="urgent backend auto-progress"
         />
+        {tagPreview.length > 0 ? (
+          <div className={`${styles.full} ${styles.tagPreview}`}>
+            {tagPreview.map((tag) => (
+              <Badge key={tag} tone={tag === 'urgent' ? 'danger' : 'accent'}>
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
         <Textarea
           className={styles.full}
           label="Description"

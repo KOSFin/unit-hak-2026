@@ -29,7 +29,7 @@ export default function Column({ column, tasks, onCreateTask, onOpenTask }) {
         strategy={verticalListSortingStrategy}
       >
         <div className={styles.list}>
-          {tasks.length === 0 ? <div className={styles.empty}>Drop a task here</div> : null}
+          {tasks.length === 0 ? <div className={styles.empty}>Drop here</div> : null}
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} onOpen={onOpenTask} />
           ))}

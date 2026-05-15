@@ -8,6 +8,13 @@
   grid-column: 1 / -1;
 }
 
+.tagPreview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 2px 0;
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;

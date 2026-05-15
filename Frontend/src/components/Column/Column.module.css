@@ -51,9 +51,10 @@
 }
 
 .empty {
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-card);
-  padding: 18px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-muted);
   color: var(--text-secondary);
   text-align: center;
+  font-size: 0.85rem;
 }

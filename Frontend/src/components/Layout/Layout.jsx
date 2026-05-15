@@ -1,17 +1,52 @@
-import Badge from '../Ui/Badge';
+import { useEffect, useRef } from 'react';
+
 import Button from '../Ui/Button';
+import NotificationsMenu from '../NotificationsMenu/NotificationsMenu';
 import styles from './Layout.module.css';
 
 export default function Layout({
-  connectionStatus,
-  mode,
-  onModeChange,
   onCreateTask,
+  onOpenAdmin,
   boardName,
   children,
-  sidePanel,
+  notifications,
+  notificationsOpen,
+  pending,
+  onToggleNotifications,
+  onCloseNotifications,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
 }) {
-  const isLive = connectionStatus === 'live';
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      return undefined;
+    }
+
+    const handleOutsideClick = (event) => {
+      if (!menuRef.current || menuRef.current.contains(event.target)) {
+        return;
+      }
+      onCloseNotifications();
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        onCloseNotifications();
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [notificationsOpen, onCloseNotifications]);
 
   return (
     <div className={styles.page}>
@@ -25,33 +60,34 @@ export default function Layout({
         </div>
 
         <div className={styles.actions}>
-          <Badge tone={isLive ? 'success' : 'warning'}>
-            {isLive ? 'Real-time connected' : 'Real-time reconnecting'}
-          </Badge>
-          <div className={styles.toggle}>
+          <div className={styles.menu} ref={menuRef}>
             <button
-              className={`${styles.toggleButton} ${mode === 'user' ? styles.toggleActive : ''}`}
-              onClick={() => onModeChange('user')}
+              className={`${styles.notificationsButton} ${notificationsOpen ? styles.notificationsActive : ''}`}
+              onClick={onToggleNotifications}
               type="button"
             >
-              User
+              Notifications
+              <span className={styles.notificationsBadge}>{unreadCount}</span>
             </button>
-            <button
-              className={`${styles.toggleButton} ${mode === 'admin' ? styles.toggleActive : ''}`}
-              onClick={() => onModeChange('admin')}
-              type="button"
-            >
-              Admin
-            </button>
+            {notificationsOpen ? (
+              <NotificationsMenu
+                notifications={notifications}
+                pending={pending}
+                onMarkRead={onMarkNotificationRead}
+                onMarkAllRead={onMarkAllNotificationsRead}
+              />
+            ) : null}
           </div>
-          <Button onClick={onCreateTask}>Create Task</Button>
+          <Button variant="secondary" size="sm" onClick={onOpenAdmin}>
+            Admin
+          </Button>
+          <Button size="sm" onClick={onCreateTask}>
+            Create Task
+          </Button>
         </div>
       </header>
 
-      <div className={styles.body}>
-        <main className={styles.main}>{children}</main>
-        <aside className={styles.side}>{sidePanel}</aside>
-      </div>
+      <main className={styles.main}>{children}</main>
     </div>
   );
 }

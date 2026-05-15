@@ -10,6 +10,13 @@ function getPriorityTone(priority) {
   return 'neutral';
 }
 
+function formatDeadline(value) {
+  return new Date(value).toLocaleString('ru-RU', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
+
 export default function TaskCard({ task, onOpen }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task:${task.id}`,
@@ -51,7 +58,7 @@ export default function TaskCard({ task, onOpen }) {
 
       <div className={styles.footer}>
         <span>{task.status}</span>
-        <span>{task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline'}</span>
+        <span>{task.deadline ? formatDeadline(task.deadline) : 'No deadline'}</span>
       </div>
     </button>
   );

@@ -13,7 +13,7 @@ export default function Board({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 4,
       },
     }),
   );
@@ -31,21 +31,35 @@ export default function Board({
     }
 
     let targetColumnId = null;
+    let targetIndex = 0;
     const overId = String(over.id);
-    if (overId.startsWith('column:')) {
-      targetColumnId = overId.replace('column:', '');
-    }
 
     if (overId.startsWith('task:')) {
-      targetColumnId = tasks.find((task) => task.id === overId.replace('task:', ''))?.column_id ?? null;
+      const overTaskId = overId.replace('task:', '');
+      const overTask = tasks.find((task) => task.id === overTaskId);
+      if (!overTask) {
+        return;
+      }
+      targetColumnId = overTask.column_id;
+      const columnTasks = tasks.filter((task) => task.column_id === targetColumnId);
+      targetIndex = columnTasks.findIndex((task) => task.id === overTaskId);
+    } else if (overId.startsWith('column:')) {
+      targetColumnId = overId.replace('column:', '');
+      targetIndex = tasks.filter((task) => task.column_id === targetColumnId).length;
     }
 
-    if (!targetColumnId || targetColumnId === activeTask.column_id) {
+    if (!targetColumnId) {
       return;
     }
 
-    const nextPosition = tasks.filter((task) => task.column_id === targetColumnId).length + 1;
-    onMoveTask(activeTask, targetColumnId, nextPosition);
+    const sourceIndex = tasks
+      .filter((task) => task.column_id === activeTask.column_id)
+      .findIndex((task) => task.id === activeTaskId);
+    if (targetColumnId === activeTask.column_id && targetIndex === sourceIndex) {
+      return;
+    }
+
+    onMoveTask(activeTask, targetColumnId, targetIndex);
   };
 
   return (

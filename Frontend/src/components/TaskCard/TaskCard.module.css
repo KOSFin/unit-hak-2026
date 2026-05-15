@@ -10,6 +10,7 @@
   box-shadow: var(--shadow-card);
   cursor: grab;
   animation: fade-in var(--transition-base);
+  touch-action: none;
 }
 
 .card:hover {
