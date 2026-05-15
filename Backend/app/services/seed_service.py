@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.models.task import TaskPriority
-from app.repositories.board_repository import BoardRepository, DEFAULT_BOARD_NAME
+from app.repositories.board_repository import DEFAULT_BOARD_NAME, BoardRepository
 from app.repositories.column_repository import ColumnRepository
 from app.repositories.rule_repository import AutomationRuleRepository
 from app.repositories.task_repository import TaskRepository
@@ -100,7 +100,7 @@ def seed_demo_data(session) -> dict[str, int | bool]:
     columns = {column.title: column for column in column_repo.list_by_board(board.id)}
     tasks_created = 0
     if not task_repo.list_by_board(board.id):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for index, seed_task in enumerate(SEED_TASKS, start=1):
             deadline = None
             if seed_task["deadline_offset_hours"] is not None:

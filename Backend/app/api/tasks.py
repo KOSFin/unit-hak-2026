@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,17 +8,18 @@ from app.schemas.task import TaskCreate, TaskMove, TaskRead, TaskUpdate
 from app.services.task_service import TaskService, VersionConflictError
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @router.get("", response_model=list[TaskRead])
-def list_tasks(board_id: str | None = None, session: Session = Depends(get_session)):
+def list_tasks(session: SessionDep, board_id: str | None = None) -> list[TaskRead]:
     service = TaskService(session)
     tasks = service.list_tasks(board_id)
     return [TaskRead.model_validate(task) for task in tasks]
 
 
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
-def create_task(payload: TaskCreate, session: Session = Depends(get_session)):
+def create_task(payload: TaskCreate, session: SessionDep) -> TaskRead:
     service = TaskService(session)
     try:
         task = service.create_task(payload)
@@ -26,7 +29,7 @@ def create_task(payload: TaskCreate, session: Session = Depends(get_session)):
 
 
 @router.get("/{task_id}", response_model=TaskRead)
-def get_task(task_id: str, session: Session = Depends(get_session)):
+def get_task(task_id: str, session: SessionDep) -> TaskRead:
     service = TaskService(session)
     task = service.get_task(task_id)
     if not task:
@@ -35,7 +38,7 @@ def get_task(task_id: str, session: Session = Depends(get_session)):
 
 
 @router.patch("/{task_id}", response_model=TaskRead)
-def update_task(task_id: str, payload: TaskUpdate, session: Session = Depends(get_session)):
+def update_task(task_id: str, payload: TaskUpdate, session: SessionDep) -> TaskRead:
     service = TaskService(session)
     try:
         task = service.update_task(task_id, payload)
@@ -47,7 +50,7 @@ def update_task(task_id: str, payload: TaskUpdate, session: Session = Depends(ge
 
 
 @router.patch("/{task_id}/move", response_model=TaskRead)
-def move_task(task_id: str, payload: TaskMove, session: Session = Depends(get_session)):
+def move_task(task_id: str, payload: TaskMove, session: SessionDep) -> TaskRead:
     service = TaskService(session)
     try:
         task = service.move_task(task_id, payload)
@@ -61,7 +64,7 @@ def move_task(task_id: str, payload: TaskMove, session: Session = Depends(get_se
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: str, session: Session = Depends(get_session)):
+def delete_task(task_id: str, session: SessionDep) -> dict[str, str]:
     service = TaskService(session)
     deleted = service.delete_task(task_id)
     if not deleted:

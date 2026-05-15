@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.column import Column
+from app.repositories.board_repository import BoardRepository
 from app.repositories.column_repository import ColumnRepository
 from app.repositories.task_repository import TaskRepository
 from app.schemas.column import ColumnCreate, ColumnUpdate
@@ -12,10 +13,13 @@ class ColumnHasTasksError(Exception):
 
 class ColumnService:
     def __init__(self, session: Session) -> None:
+        self.board_repo = BoardRepository(session)
         self.column_repo = ColumnRepository(session)
         self.task_repo = TaskRepository(session)
 
     def create_column(self, payload: ColumnCreate) -> Column:
+        if not self.board_repo.get_by_id(payload.board_id):
+            raise ValueError("Board not found")
         position = payload.position
         if position is None:
             position = self.column_repo.get_max_position(payload.board_id) + 1

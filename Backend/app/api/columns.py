@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,17 +8,25 @@ from app.schemas.column import ColumnCreate, ColumnRead, ColumnUpdate
 from app.services.column_service import ColumnHasTasksError, ColumnService
 
 router = APIRouter(prefix="/api/columns", tags=["columns"])
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @router.post("", response_model=ColumnRead, status_code=status.HTTP_201_CREATED)
-def create_column(payload: ColumnCreate, session: Session = Depends(get_session)):
+def create_column(payload: ColumnCreate, session: SessionDep) -> ColumnRead:
     service = ColumnService(session)
-    column = service.create_column(payload)
+    try:
+        column = service.create_column(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return ColumnRead.model_validate(column)
 
 
 @router.patch("/{column_id}", response_model=ColumnRead)
-def update_column(column_id: str, payload: ColumnUpdate, session: Session = Depends(get_session)):
+def update_column(
+    column_id: str,
+    payload: ColumnUpdate,
+    session: SessionDep,
+) -> ColumnRead:
     service = ColumnService(session)
     column = service.update_column(column_id, payload)
     if not column:
@@ -25,7 +35,7 @@ def update_column(column_id: str, payload: ColumnUpdate, session: Session = Depe
 
 
 @router.delete("/{column_id}")
-def delete_column(column_id: str, session: Session = Depends(get_session)):
+def delete_column(column_id: str, session: SessionDep) -> dict[str, str]:
     service = ColumnService(session)
     try:
         deleted = service.delete_column(column_id)

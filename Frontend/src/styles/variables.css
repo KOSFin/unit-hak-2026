@@ -1,0 +1,22 @@
+:root {
+  --font-sans: "Space Grotesk", "Sora", "Helvetica Neue", sans-serif;
+  --background: #f6f6f3;
+  --surface: #ffffff;
+  --surface-muted: #f1f1ed;
+  --border: #dfdfd7;
+  --border-strong: #c9c9bf;
+  --text-primary: #141412;
+  --text-secondary: #6f6f67;
+  --accent: #161616;
+  --success: #2f6a49;
+  --warning: #7f5d13;
+  --danger: #8f3a31;
+  --shadow-soft: 0 20px 48px rgba(20, 20, 18, 0.08);
+  --shadow-card: 0 14px 30px rgba(20, 20, 18, 0.05);
+  --radius-panel: 20px;
+  --radius-card: 16px;
+  --radius-input: 14px;
+  --transition-fast: 160ms ease;
+  --transition-base: 220ms ease;
+  --page-width: 1480px;
+}

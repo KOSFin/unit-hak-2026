@@ -1,75 +1,109 @@
+from __future__ import annotations
+
 import json
 import logging
-import os
-import sys
-import httpx
-from pika.exceptions import AMQPError
+from typing import Any
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
-from app.core.config import get_settings
+from sqlalchemy.orm import Session
+
 from app.core.database import SessionLocal
-from app.queue.rabbitmq import get_rabbitmq_connection
-from app.repositories.rule_repository import AutomationRuleRepository
+from app.queue.consumer import RabbitMQConsumer
+from app.queue.message_types import (
+    INCOMING_TASK_RECEIVED,
+    TASK_CREATED,
+    TASK_MOVED,
+    TASK_UPDATED,
+)
+from app.repositories.event_repository import DomainEventRepository
 from app.schemas.event import DomainEventSchema
+from app.services.automation_service import AutomationService
+from app.services.incoming_task_service import IncomingTaskService
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def process_event(ch, method, properties, body):
-    try:
-        data = json.loads(body)
-        event = DomainEventSchema(**data)
-        if event.type == "TASK_MOVED":
-            handle_task_moved(event)
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-    except Exception as e:
-        logger.error(f"Error processing event: {e}")
-        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-def handle_task_moved(event: DomainEventSchema):
-    if not event.payload or "task" not in event.payload: return
-    task = event.payload["task"]
-    column_id = task.get("column_id")
-    task_id = task.get("id")
-    version = task.get("version")
-    if not column_id or not task_id: return
+class WorkerEventProcessor:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.event_repo = DomainEventRepository(session)
+        self.automation_service = AutomationService(session)
+        self.incoming_task_service = IncomingTaskService(session)
 
-    db = SessionLocal()
-    try:
-        rules = AutomationRuleRepository(db).list_all()
-        for rule in rules:
-            if rule.enabled and rule.trigger_type == "TASK_MOVED":
-                if rule.condition.get("column_id") == column_id:
-                    apply_action(task_id, version, rule.action)
-    finally:
-        db.close()
+    def process_payload(self, body: bytes | str | dict[str, Any]) -> bool:
+        event = self._parse_event(body)
+        if not event:
+            return False
 
-def apply_action(task_id: str, version: int, action: dict):
-    if action.get("type") == "set_status" and action.get("status"):
-        url = getattr(get_settings(), "api_url", "http://localhost:8000")
+        stored_event = self.event_repo.get_by_id(event.id)
+        if not stored_event:
+            logger.warning("Received unknown event %s", event.id)
+            return False
+        if stored_event.processed:
+            return True
+
         try:
-            httpx.patch(f"{url}/api/tasks/{task_id}", json={"status": action["status"], "version": version}, timeout=5.0)
-        except Exception as e:
-            logger.error(f"Failed to apply rule: {e}")
+            self._dispatch(event)
+        except Exception as exc:
+            logger.exception("Worker failed to process event %s", event.id)
+            self.event_repo.mark_failed(event.id, str(exc))
+            return False
 
-def main():
-    conn = get_rabbitmq_connection()
-    if not conn:
-        sys.exit(1)
-    channel = conn.channel()
-    channel.queue_declare(queue="task_events", durable=True)
-    channel.queue_bind(exchange="amq.fanout", queue="task_events")
-    channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue="task_events", on_message_callback=process_event)
+        self.event_repo.mark_processed(event.id)
+        return True
+
+    def _dispatch(self, event: DomainEventSchema) -> None:
+        if event.type in {TASK_CREATED, TASK_UPDATED, TASK_MOVED} and event.entity_id:
+            self.automation_service.apply_task_automations(event.entity_id, event.type)
+            return
+        if event.type == INCOMING_TASK_RECEIVED and event.entity_id:
+            self.incoming_task_service.process_incoming_task(event.entity_id)
+            return
+
+    def _parse_event(self, body: bytes | str | dict[str, Any]) -> DomainEventSchema | None:
+        try:
+            if isinstance(body, bytes):
+                payload = json.loads(body.decode("utf-8"))
+            elif isinstance(body, str):
+                payload = json.loads(body)
+            else:
+                payload = body
+            return DomainEventSchema.model_validate(payload)
+        except Exception:
+            logger.exception("Worker received malformed event payload")
+            return None
+
+
+def process_event(channel: Any, method: Any, _properties: Any, body: bytes) -> None:
+    session = SessionLocal()
     try:
-        channel.start_consuming()
-    except KeyboardInterrupt:
-        channel.stop_consuming()
-    except Exception as e:
-        logger.error(f"Worker crashed: {e}")
+        processor = WorkerEventProcessor(session)
+        handled = processor.process_payload(body)
+        if handled:
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+        else:
+            channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     finally:
-        conn.close()
+        session.close()
+
+
+def main() -> int:
+    consumer = RabbitMQConsumer("task_events")
+    if not consumer.connect():
+        return 1
+
+    try:
+        consumer.consume(process_event)
+    except KeyboardInterrupt:
+        consumer.close()
+        return 0
+    except Exception:
+        logger.exception("Worker crashed")
+        consumer.close()
+        return 1
+
+    consumer.close()
+    return 0
+
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
-
+    raise SystemExit(main())

@@ -1,0 +1,52 @@
+.card {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+  animation: fade-in var(--transition-base);
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+.dragging {
+  opacity: 0.75;
+}
+
+.header,
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.id,
+.footer {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.title {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

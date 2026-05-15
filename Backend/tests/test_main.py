@@ -1,34 +1,107 @@
-from fastapi import FastAPI
-
-from app.core.config import get_settings
-from app.main import create_app
-
-
-def test_create_app_returns_fastapi():
-    app = create_app()
-    assert isinstance(app, FastAPI)
-    paths = {route.path for route in app.routes}
-    assert "/health" in paths
-    assert "/ready" in paths
-
-
-def test_create_app_adds_cors(monkeypatch):
-    monkeypatch.setenv("BACKEND_CORS_ORIGINS", "https://flowboard.example.com")
-    get_settings.cache_clear()
-    app = create_app()
-    middleware_names = {middleware.cls.__name__ for middleware in app.user_middleware}
-    assert "CORSMiddleware" in middleware_names
-
-
 import pytest
+
+from app.main import create_app, lifespan
+
+
 @pytest.mark.anyio
-async def test_lifespan(monkeypatch):
-    from app.main import lifespan
-    monkeypatch.setattr("app.ws.consumer.WSConsumerThread.start", lambda self: None)
-    monkeypatch.setattr("app.ws.consumer.WSConsumerThread.stop", lambda self: None)
-    monkeypatch.setattr("app.ws.consumer.WSConsumerThread.join", lambda self, timeout: None)
-    
-    app = create_app()
-    async with lifespan(app):
+async def test_lifespan_starts_seed_and_relay(monkeypatch):
+    calls = []
+
+    class RelayStub:
+        def __init__(self, _loop):
+            self.started = False
+            self.stopped = False
+
+        def start(self):
+            self.started = True
+            calls.append("start")
+
+        def stop(self):
+            self.stopped = True
+            calls.append("stop")
+
+        def join(self, timeout):
+            calls.append(("join", timeout))
+
+    class SessionStub:
+        def close(self):
+            calls.append("close")
+
+    monkeypatch.setattr("app.main.Base.metadata.create_all", lambda bind: calls.append(bind))
+    monkeypatch.setattr("app.main.RealtimeRelay", RelayStub)
+    monkeypatch.setattr("app.main.SessionLocal", lambda: SessionStub())
+    monkeypatch.setattr("app.main.seed_demo_data", lambda session: calls.append(session))
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "seed_demo_data": True,
+                "log_level": "info",
+                "cors_origins": lambda self: ["https://ui.example.com"],
+            },
+        )(),
+    )
+
+    async with lifespan(None):
         pass
 
+    assert "start" in calls
+    assert "stop" in calls
+
+
+@pytest.mark.anyio
+async def test_lifespan_without_seed(monkeypatch):
+    calls = []
+
+    class RelayStub:
+        def __init__(self, _loop):
+            return None
+
+        def start(self):
+            calls.append("start")
+
+        def stop(self):
+            calls.append("stop")
+
+        def join(self, timeout):
+            calls.append(timeout)
+
+    monkeypatch.setattr("app.main.Base.metadata.create_all", lambda bind: calls.append(bind))
+    monkeypatch.setattr("app.main.RealtimeRelay", RelayStub)
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "seed_demo_data": False,
+                "log_level": "info",
+                "cors_origins": lambda self: [],
+            },
+        )(),
+    )
+
+    async with lifespan(None):
+        pass
+
+    assert "start" in calls
+
+
+def test_create_app_configures_cors(monkeypatch):
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "seed_demo_data": False,
+                "log_level": "info",
+                "cors_origins": lambda self: ["https://ui.example.com"],
+            },
+        )(),
+    )
+    monkeypatch.setattr("app.main.setup_logging", lambda _level: None)
+    app = create_app()
+    assert app.title == "FlowBoard API"

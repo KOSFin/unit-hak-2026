@@ -6,6 +6,7 @@ from app.repositories.event_repository import DomainEventRepository
 
 _publisher = None
 
+
 def get_publisher():
     global _publisher
     if _publisher is None:

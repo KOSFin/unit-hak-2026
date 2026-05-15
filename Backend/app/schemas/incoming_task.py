@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class IncomingTaskResponse(BaseModel):
@@ -14,3 +14,8 @@ class IncomingTaskResponse(BaseModel):
     processed_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class IncomingTaskCreate(BaseModel):
+    external_id: str
+    raw_payload: dict[str, Any] = Field(default_factory=dict)

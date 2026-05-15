@@ -27,6 +27,13 @@ class ColumnRepository:
         stmt = select(Column).where(Column.board_id == board_id).order_by(Column.position)
         return list(self.session.execute(stmt).scalars().all())
 
+    def get_by_title(self, board_id: str, title: str) -> Column | None:
+        stmt = select(Column).where(
+            Column.board_id == board_id,
+            Column.title == title,
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def get_max_position(self, board_id: str) -> int:
         stmt = select(func.max(Column.position)).where(Column.board_id == board_id)
         result = self.session.execute(stmt).scalar_one()

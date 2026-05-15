@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -40,7 +40,7 @@ class DomainEventRepository:
         if not event:
             return None
         event.processed = True
-        event.processed_at = datetime.now(timezone.utc)
+        event.processed_at = datetime.now(UTC)
         event.error = None
         self.session.commit()
         self.session.refresh(event)
@@ -50,8 +50,8 @@ class DomainEventRepository:
         event = self.get_by_id(event_id)
         if not event:
             return None
-        event.processed = True
-        event.processed_at = datetime.now(timezone.utc)
+        event.processed = False
+        event.processed_at = datetime.now(UTC)
         event.error = error
         self.session.commit()
         self.session.refresh(event)

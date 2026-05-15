@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -7,10 +9,11 @@ from app.schemas.column import ColumnRead
 from app.services.board_service import BoardService
 
 router = APIRouter(prefix="/api/boards", tags=["boards"])
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @router.get("/default", response_model=BoardDetail)
-def get_default_board(session: Session = Depends(get_session)):
+def get_default_board(session: SessionDep) -> BoardDetail:
     service = BoardService(session)
     board = service.get_default_board()
     if not board:
@@ -26,7 +29,7 @@ def get_default_board(session: Session = Depends(get_session)):
 
 
 @router.get("/{board_id}", response_model=BoardDetail)
-def get_board(board_id: str, session: Session = Depends(get_session)):
+def get_board(board_id: str, session: SessionDep) -> BoardDetail:
     service = BoardService(session)
     board = service.get_board(board_id)
     if not board:

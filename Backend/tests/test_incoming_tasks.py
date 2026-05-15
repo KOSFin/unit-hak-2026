@@ -1,33 +1,59 @@
-import pytest
-from httpx import AsyncClient
+from datetime import UTC, datetime
 
-from app.models.incoming_task import IncomingTask, IncomingTaskStatus
+import pytest
+
+from app.models.incoming_task import IncomingTaskStatus
+from app.repositories.task_repository import TaskRepository
+from app.schemas.incoming_task import IncomingTaskCreate
+from app.services.incoming_task_service import IncomingTaskService
 
 
 @pytest.mark.anyio
-async def test_incoming_tasks_crud(async_client_with_db: AsyncClient, db_session):
-    task = IncomingTask(external_id="ext-1", raw_payload={"data": "test"}, status=IncomingTaskStatus.PENDING)
-    db_session.add(task)
-    db_session.commit()
+async def test_incoming_tasks_api(async_client):
+    response = await async_client.post(
+        "/api/incoming-tasks",
+        json={"external_id": "ext-1", "raw_payload": {"title": "Imported"}},
+    )
+    assert response.status_code == 201
+    created = response.json()
+    assert created["status"] == "RECEIVED"
 
-    response = await async_client_with_db.get("/api/incoming-tasks")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data) >= 1
-    
-    response = await async_client_with_db.get("/api/incoming-tasks", params={"task_status": "PENDING"})
-    assert response.status_code == 200
-    
-    response = await async_client_with_db.patch(f"/api/incoming-tasks/{task.id}/accept")
-    assert response.status_code == 200
-    assert response.json()["status"] == "ACCEPTED"
+    duplicate = await async_client.post(
+        "/api/incoming-tasks",
+        json={"external_id": "ext-1", "raw_payload": {"title": "Imported"}},
+    )
+    assert duplicate.status_code == 201
+    assert duplicate.json()["status"] == "DUPLICATE"
 
-    response = await async_client_with_db.patch(f"/api/incoming-tasks/{task.id}/reject")
-    assert response.status_code == 200
-    assert response.json()["status"] == "REJECTED"
+    listed = await async_client.get("/api/incoming-tasks")
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
 
-    response = await async_client_with_db.patch("/api/incoming-tasks/missing/accept")
-    assert response.status_code == 404
 
-    response = await async_client_with_db.patch("/api/incoming-tasks/missing/reject")
-    assert response.status_code == 404
+def test_process_incoming_tasks(db_session, seeded_board):
+    service = IncomingTaskService(db_session)
+    valid = service.create_task(
+        payload=IncomingTaskCreate(
+            external_id="incoming-1",
+            raw_payload={
+                "title": "Imported task",
+                "description": "from api",
+                "tags": ["urgent"],
+                "deadline": datetime.now(UTC).isoformat(),
+            },
+        ),
+    )
+    processed = service.process_incoming_task(valid.id)
+    assert processed.status == IncomingTaskStatus.PROCESSED
+    assert len(TaskRepository(db_session).list_by_board(seeded_board["board"].id)) == 1
+
+    invalid = service.create_task(
+        payload=IncomingTaskCreate(
+            external_id="incoming-2",
+            raw_payload={"tags": "not-a-list"},
+        ),
+    )
+    rejected = service.process_incoming_task(invalid.id)
+    assert rejected.status == IncomingTaskStatus.REJECTED
+    assert service.process_incoming_task("missing") is None
+    assert service.list_tasks(status="REJECTED")[0].id == rejected.id

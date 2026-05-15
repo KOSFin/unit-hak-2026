@@ -1,0 +1,47 @@
+.panel {
+  display: grid;
+  gap: 18px;
+}
+
+.kicker {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.rule {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.rule p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.84rem;
+}

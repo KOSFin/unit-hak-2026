@@ -14,3 +14,9 @@ class DomainEventSchema(BaseModel):
     error: str | None = None
     created_at: datetime
     processed_at: datetime | None = None
+
+
+class RealtimeEventSchema(BaseModel):
+    type: str
+    payload: dict[str, Any]
+    createdAt: str

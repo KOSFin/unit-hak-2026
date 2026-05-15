@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.task import Task
 from app.queue.message_types import TASK_CREATED, TASK_DELETED, TASK_MOVED, TASK_UPDATED
+from app.repositories.board_repository import BoardRepository
 from app.repositories.column_repository import ColumnRepository
 from app.repositories.task_repository import TaskRepository
 from app.schemas.task import TaskCreate, TaskMove, TaskUpdate
@@ -18,6 +19,7 @@ class VersionConflictError(Exception):
 
 class TaskService:
     def __init__(self, session: Session) -> None:
+        self.board_repo = BoardRepository(session)
         self.task_repo = TaskRepository(session)
         self.column_repo = ColumnRepository(session)
         self.event_service = EventService(session)
@@ -31,6 +33,8 @@ class TaskService:
         return self.task_repo.get_by_id(task_id)
 
     def create_task(self, payload: TaskCreate) -> Task:
+        if not self.board_repo.get_by_id(payload.board_id):
+            raise ValueError("Board not found")
         column = self.column_repo.get_by_id(payload.column_id)
         if not column or column.board_id != payload.board_id:
             raise ValueError("Column not found")

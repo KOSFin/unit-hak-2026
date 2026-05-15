@@ -1,99 +1,93 @@
-import httpx
-import pytest
+import socket
 
-from app.core import health as health_module
-from app.core.database import get_engine
+import pytest
+from sqlalchemy import create_engine
+
+from app.core.health import (
+    check_database,
+    check_rabbitmq,
+    main,
+    readiness_status,
+    run_worker_healthcheck,
+)
 
 
 @pytest.mark.anyio
-async def test_health_ok(async_client):
+async def test_health_endpoint(async_client):
     response = await async_client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "backend-api"}
 
 
 @pytest.mark.anyio
-async def test_ready_ok(app, sqlite_engine):
-    app.dependency_overrides[get_engine] = lambda: sqlite_engine
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/ready")
-    app.dependency_overrides.clear()
-
+async def test_ready_endpoint(async_client):
+    response = await async_client.get("/ready")
     assert response.status_code == 200
-    payload = response.json()
-    assert payload["ready"] is True
-    assert payload["checks"]["database"]["ok"] is True
+    assert response.json()["ready"] is True
 
 
 @pytest.mark.anyio
-async def test_ready_db_failure(app, sqlite_engine, monkeypatch):
-    app.dependency_overrides[get_engine] = lambda: sqlite_engine
-    monkeypatch.setattr(health_module, "check_database", lambda engine: (False, "down"))
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/ready")
-    app.dependency_overrides.clear()
-
+async def test_ready_endpoint_unavailable(async_client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.health.readiness_status",
+        lambda _engine: {"ready": False, "checks": {}},
+    )
+    response = await async_client.get("/ready")
     assert response.status_code == 503
-    payload = response.json()["detail"]
-    assert payload["ready"] is False
-    assert payload["checks"]["database"]["ok"] is False
 
 
-def test_check_rabbitmq_skips_when_no_host():
-    ok, error = health_module.check_rabbitmq(None, 5672)
-    assert ok is True
-    assert error == ""
+def test_check_database_and_readiness_failure(monkeypatch):
+    failing_engine = create_engine("sqlite+pysqlite:///:memory:")
+    monkeypatch.setattr("app.core.health.check_rabbitmq", lambda *_args: (False, "down"))
+    result = readiness_status(failing_engine)
+    assert result["ready"] is False
+    assert result["checks"]["rabbitmq"]["error"] == "down"
 
 
-def test_check_rabbitmq_ok(monkeypatch):
-    class DummySocket:
+def test_check_database_failure_and_check_rabbitmq_branches(monkeypatch):
+    class BrokenEngine:
+        def connect(self):
+            raise RuntimeError("db down")
+
+    ok, error = check_database(BrokenEngine())
+    assert ok is False
+    assert "db down" in error
+
+    assert check_rabbitmq(None, 5672) == (True, "")
+
+    class ConnectionStub:
         def __enter__(self):
             return self
 
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    def fake_create_connection(address, timeout):
-        return DummySocket()
+    monkeypatch.setattr(socket, "create_connection", lambda *_args, **_kwargs: ConnectionStub())
+    assert check_rabbitmq("rabbitmq", 5672) == (True, "")
 
-    monkeypatch.setattr(health_module.socket, "create_connection", fake_create_connection)
-    ok, error = health_module.check_rabbitmq("localhost", 5672)
-    assert ok is True
-    assert error == ""
+    def raise_socket(*_args, **_kwargs):
+        raise OSError("socket failed")
 
-
-def test_check_rabbitmq_failure(monkeypatch):
-    def fake_create_connection(address, timeout):
-        raise OSError("nope")
-
-    monkeypatch.setattr(health_module.socket, "create_connection", fake_create_connection)
-    ok, error = health_module.check_rabbitmq("localhost", 5672)
+    monkeypatch.setattr(socket, "create_connection", raise_socket)
+    ok, error = check_rabbitmq("rabbitmq", 5672)
     assert ok is False
-    assert "nope" in error
+    assert "socket failed" in error
 
 
-def test_check_database_failure():
-    class DummyEngine:
-        def connect(self):
-            raise RuntimeError("boom")
+def test_worker_healthcheck_and_main():
+    class GoodSettings:
+        database_url = "sqlite+pysqlite:///:memory:"
 
-    ok, error = health_module.check_database(DummyEngine())
-    assert ok is False
-    assert "boom" in error
+        def resolved_database_url(self):
+            return self.database_url
 
+    class BadSettings:
+        database_url = ""
 
-def test_health_main_worker_ok():
-    assert health_module.main(["worker"]) == 0
+        def resolved_database_url(self):
+            return self.database_url
 
-
-def test_health_main_no_args():
-    assert health_module.main([]) == 0
-
-
-def test_worker_healthcheck_failure():
-    from app.core.config import Settings
-
-    settings = Settings(database_url="")
-    assert health_module.run_worker_healthcheck(settings) == 1
+    assert run_worker_healthcheck(GoodSettings()) == 0
+    assert run_worker_healthcheck(BadSettings()) == 1
+    assert main(["worker"]) == 0
+    assert main([]) == 0

@@ -1,9 +1,8 @@
-import json
 import logging
 from abc import ABC, abstractmethod
 
 from app.models.domain_event import DomainEvent
-from app.queue.rabbitmq import get_rabbitmq_connection
+from app.queue.rabbitmq import EVENT_EXCHANGE, get_rabbitmq_connection
 from app.schemas.event import DomainEventSchema
 
 logger = logging.getLogger(__name__)
@@ -27,8 +26,13 @@ class RabbitMQPublisher(EventPublisher):
             self.connection = get_rabbitmq_connection()
             if self.connection:
                 self.channel = self.connection.channel()
+                self.channel.exchange_declare(
+                    exchange=EVENT_EXCHANGE,
+                    exchange_type="fanout",
+                    durable=True,
+                )
                 self.channel.queue_declare(queue=self.queue_name, durable=True)
-                self.channel.queue_bind(exchange="amq.fanout", queue=self.queue_name)
+                self.channel.queue_bind(exchange=EVENT_EXCHANGE, queue=self.queue_name)
         except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             self.connection = None
@@ -59,12 +63,10 @@ class RabbitMQPublisher(EventPublisher):
             import pika
 
             self.channel.basic_publish(
-                exchange="amq.fanout",
+                exchange=EVENT_EXCHANGE,
                 routing_key="",
                 body=message,
-                properties=pika.BasicProperties(
-                    delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE
-                ),
+                properties=pika.BasicProperties(delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE),
             )
             logger.info(f"Published event {event.id} of type {event.type}")
         except Exception as e:

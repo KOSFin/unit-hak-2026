@@ -10,7 +10,12 @@ class IncomingTaskRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def create(self, external_id: str, raw_payload: dict, status: IncomingTaskStatus) -> IncomingTask:
+    def create(
+        self,
+        external_id: str,
+        raw_payload: dict,
+        status: IncomingTaskStatus,
+    ) -> IncomingTask:
         incoming = IncomingTask(
             external_id=external_id,
             raw_payload=raw_payload,

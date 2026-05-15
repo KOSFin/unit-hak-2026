@@ -50,6 +50,7 @@ def run_worker_healthcheck(settings: Settings | None = None) -> int:
         settings = settings or get_settings()
         if not settings.database_url:
             raise ValueError("DATABASE_URL is missing")
+        settings.resolved_database_url()
         return 0
     except Exception:
         logger.exception("Worker healthcheck failed")
