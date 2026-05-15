@@ -1,0 +1,9 @@
+.git
+.venv
+Backend/.pytest_cache
+Backend/.ruff_cache
+Frontend/node_modules
+Frontend/dist
+**/__pycache__
+*.pyc
+.DS_Store

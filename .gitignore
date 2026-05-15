@@ -38,6 +38,3 @@ build/
 Thumbs.db
 .idea/
 .vscode/
-
-.agents
-Docs
