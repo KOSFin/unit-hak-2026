@@ -75,23 +75,23 @@ services:
       retries: 5
       start_period: 15s
 
-  # frontend:
-  #   build:
-  #     context: ./Frontend
-  #     dockerfile: Dockerfile
-  #     args:
-  #       VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-  #       VITE_WS_URL: ${VITE_WS_URL}
-  #   env_file:
-  #     - .env
-  #   expose:
-  #     - "${FRONTEND_INTERNAL_PORT}"
-  #   depends_on:
-  #     backend-api:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${FRONTEND_INTERNAL_PORT}/health || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 10s
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_WS_URL: ${VITE_WS_URL}
+    env_file:
+      - .env
+    expose:
+      - "${FRONTEND_INTERNAL_PORT}"
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${FRONTEND_INTERNAL_PORT}/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
