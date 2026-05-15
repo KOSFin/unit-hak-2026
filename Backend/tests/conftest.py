@@ -1,8 +1,11 @@
 import httpx
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+import app.models  # noqa: F401
 from app.core.config import get_settings
+from app.core.database import Base
 from app.main import create_app
 
 
@@ -28,3 +31,15 @@ def client(app):
 @pytest.fixture()
 def sqlite_engine():
     return create_engine("sqlite+pysqlite:///:memory:", future=True)
+
+
+@pytest.fixture()
+def db_session(sqlite_engine):
+    Base.metadata.create_all(sqlite_engine)
+    SessionLocal = sessionmaker(bind=sqlite_engine, autoflush=False, autocommit=False)
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(sqlite_engine)

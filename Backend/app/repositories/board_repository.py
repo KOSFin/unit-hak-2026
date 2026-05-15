@@ -1,0 +1,49 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.board import Board
+
+DEFAULT_BOARD_NAME = "FlowBoard"
+
+
+class BoardRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def create(self, name: str) -> Board:
+        board = Board(name=name)
+        self.session.add(board)
+        self.session.commit()
+        self.session.refresh(board)
+        return board
+
+    def get_by_id(self, board_id: str) -> Board | None:
+        return self.session.get(Board, board_id)
+
+    def get_by_name(self, name: str) -> Board | None:
+        stmt = select(Board).where(Board.name == name)
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    def list_all(self) -> list[Board]:
+        stmt = select(Board).order_by(Board.created_at)
+        return list(self.session.execute(stmt).scalars().all())
+
+    def get_default(self) -> Board | None:
+        return self.get_by_name(DEFAULT_BOARD_NAME)
+
+    def update_name(self, board_id: str, name: str) -> Board | None:
+        board = self.get_by_id(board_id)
+        if not board:
+            return None
+        board.name = name
+        self.session.commit()
+        self.session.refresh(board)
+        return board
+
+    def delete(self, board_id: str) -> bool:
+        board = self.get_by_id(board_id)
+        if not board:
+            return False
+        self.session.delete(board)
+        self.session.commit()
+        return True

@@ -1,0 +1,46 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.notification import Notification
+
+
+class NotificationRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def create(self, title: str, message: str, type: str, task_id: str | None) -> Notification:
+        notification = Notification(
+            title=title,
+            message=message,
+            type=type,
+            task_id=task_id,
+        )
+        self.session.add(notification)
+        self.session.commit()
+        self.session.refresh(notification)
+        return notification
+
+    def get_by_id(self, notification_id: str) -> Notification | None:
+        return self.session.get(Notification, notification_id)
+
+    def list_all(self) -> list[Notification]:
+        stmt = select(Notification).order_by(Notification.created_at.desc())
+        return list(self.session.execute(stmt).scalars().all())
+
+    def mark_read(self, notification_id: str) -> Notification | None:
+        notification = self.get_by_id(notification_id)
+        if not notification:
+            return None
+        notification.read = True
+        self.session.commit()
+        self.session.refresh(notification)
+        return notification
+
+    def mark_all_read(self) -> int:
+        unread = (
+            self.session.query(Notification)
+            .filter(Notification.read.is_(False))
+            .update({Notification.read: True})
+        )
+        self.session.commit()
+        return int(unread)
