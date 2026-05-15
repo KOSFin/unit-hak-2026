@@ -17,7 +17,7 @@
 ## Quick Start
 
 ```bash
-cp .env.example .env
+cp .env.compose.example .env
 # Edit .env to set secrets, then:
 docker compose up --build
 ```

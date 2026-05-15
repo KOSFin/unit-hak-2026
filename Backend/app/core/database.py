@@ -8,7 +8,7 @@ Base = declarative_base()
 
 def create_db_engine():
     settings = get_settings()
-    return create_engine(settings.database_url, pool_pre_ping=True, future=True)
+    return create_engine(settings.resolved_database_url(), pool_pre_ping=True, future=True)
 
 
 engine = create_db_engine()
