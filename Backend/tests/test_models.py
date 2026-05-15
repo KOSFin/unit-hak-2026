@@ -7,4 +7,4 @@ def test_task_priority_enum_values():
 
 
 def test_incoming_status_enum_values():
-    assert IncomingTaskStatus.DUPLICATE.value == "DUPLICATE"
+    assert IncomingTaskStatus.PENDING.value == "PENDING"

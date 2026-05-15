@@ -7,11 +7,9 @@ from app.core.database import Base
 
 
 class IncomingTaskStatus(str, Enum):
-    RECEIVED = "RECEIVED"
-    VALIDATED = "VALIDATED"
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
     REJECTED = "REJECTED"
-    PROCESSED = "PROCESSED"
-    DUPLICATE = "DUPLICATE"
 
 
 class IncomingTask(Base):
@@ -23,7 +21,7 @@ class IncomingTask(Base):
     status = sa.Column(
         sa.Enum(IncomingTaskStatus, name="incoming_task_status", native_enum=False),
         nullable=False,
-        default=IncomingTaskStatus.RECEIVED,
+        default=IncomingTaskStatus.PENDING,
     )
     validation_error = sa.Column(sa.Text, nullable=True)
     created_at = sa.Column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)

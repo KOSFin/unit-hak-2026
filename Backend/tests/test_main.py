@@ -18,3 +18,17 @@ def test_create_app_adds_cors(monkeypatch):
     app = create_app()
     middleware_names = {middleware.cls.__name__ for middleware in app.user_middleware}
     assert "CORSMiddleware" in middleware_names
+
+
+import pytest
+@pytest.mark.anyio
+async def test_lifespan(monkeypatch):
+    from app.main import lifespan
+    monkeypatch.setattr("app.ws.consumer.WSConsumerThread.start", lambda self: None)
+    monkeypatch.setattr("app.ws.consumer.WSConsumerThread.stop", lambda self: None)
+    monkeypatch.setattr("app.ws.consumer.WSConsumerThread.join", lambda self, timeout: None)
+    
+    app = create_app()
+    async with lifespan(app):
+        pass
+

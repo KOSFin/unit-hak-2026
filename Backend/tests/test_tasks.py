@@ -94,6 +94,18 @@ async def test_tasks_move_and_validation_errors(async_client_with_db, db_session
     )
     assert response.status_code == 404
 
+    response = await async_client_with_db.patch(
+        f"/api/tasks/{task['id']}/move",
+        json={"column_id": column.id, "status": "To Do", "version": 0},
+    )
+    assert response.status_code == 409
+
+    response = await async_client_with_db.patch(
+        "/api/tasks/missing/move",
+        json={"column_id": column.id, "status": "To Do", "version": 1},
+    )
+    assert response.status_code == 404
+
 
 @pytest.mark.anyio
 async def test_tasks_create_invalid_column(async_client_with_db, db_session):

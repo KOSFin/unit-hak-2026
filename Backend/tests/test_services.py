@@ -89,12 +89,13 @@ def test_task_service_flow(db_session):
     same_task = service.update_task(task.id, payload=TaskUpdate(version=task.version))
     assert same_task is not None
 
+    original_version = task.version
     updated = service.update_task(
         task.id,
-        payload=TaskUpdate(title="Updated", version=task.version),
+        payload=TaskUpdate(title="Updated", version=original_version),
     )
     assert updated is not None
-    assert updated.version == task.version + 1
+    assert updated.version == original_version + 1
 
     with pytest.raises(VersionConflictError):
         service.move_task(task.id, payload=TaskMove(column_id=column.id, version=0))
@@ -145,3 +146,33 @@ def test_task_service_create_invalid_column(db_session):
                 position=None,
             )
         )
+
+def test_task_service_concurrent_delete(db_session, monkeypatch):
+    board_repo = BoardRepository(db_session)
+    column_repo = ColumnRepository(db_session)
+    board = board_repo.create(DEFAULT_BOARD_NAME)
+    column = column_repo.create(board.id, "To Do", 1, True)
+
+    service = TaskService(db_session)
+    task = service.create_task(
+        payload=TaskCreate(
+            board_id=board.id,
+            column_id=column.id,
+            title="Task",
+            priority=TaskPriority.LOW,
+            tags=[]
+        )
+    )
+
+    # Mock repo to return None/False for update/delete as if concurrently deleted
+    monkeypatch.setattr(service.task_repo, "update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service.task_repo, "delete", lambda *args, **kwargs: False)
+
+    updated = service.update_task(task.id, payload=TaskUpdate(title="Updated", version=task.version))
+    assert updated is None
+
+    moved = service.move_task(task.id, payload=TaskMove(column_id=column.id, version=task.version))
+    assert moved is None
+
+    deleted = service.delete_task(task.id)
+    assert deleted is False

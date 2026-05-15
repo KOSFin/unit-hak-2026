@@ -164,7 +164,7 @@ def test_notification_repository_flow(db_session):
 
 def test_incoming_task_repository_flow(db_session):
     repo = IncomingTaskRepository(db_session)
-    incoming = repo.create("ext-1", {"title": "Incoming"}, IncomingTaskStatus.RECEIVED)
+    incoming = repo.create("ext-1", {"title": "Incoming"}, IncomingTaskStatus.PENDING)
 
     by_external = repo.get_by_external_id("ext-1")
     assert by_external is not None
@@ -174,12 +174,12 @@ def test_incoming_task_repository_flow(db_session):
 
     processed = repo.update_status(
         incoming.id,
-        IncomingTaskStatus.PROCESSED,
+        IncomingTaskStatus.ACCEPTED,
         validation_error=None,
         processed_at=datetime.now(timezone.utc),
     )
     assert processed is not None
-    assert processed.status == IncomingTaskStatus.PROCESSED
+    assert processed.status == IncomingTaskStatus.ACCEPTED
 
     missing = repo.update_status("missing", IncomingTaskStatus.REJECTED)
     assert missing is None
