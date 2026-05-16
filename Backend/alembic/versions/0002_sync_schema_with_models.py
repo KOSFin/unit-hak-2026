@@ -16,85 +16,112 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("boards", sa.Column("public_id", sa.String(length=32), nullable=True))
-    op.add_column("boards", sa.Column("image_path", sa.String(length=500), nullable=True))
-    op.add_column(
-        "boards",
-        sa.Column("retention_days", sa.Integer(), nullable=False, server_default="3"),
-    )
-    op.add_column(
-        "boards",
-        sa.Column("expires_after_days", sa.Integer(), nullable=False, server_default="3"),
-    )
-    op.add_column(
-        "boards",
-        sa.Column(
-            "last_activity_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.func.now(),
-        ),
-    )
-    op.add_column("boards", sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True))
-    op.create_index("ix_boards_public_id", "boards", ["public_id"], unique=True)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
 
-    op.add_column("tasks", sa.Column("correlation_id", sa.String(length=64), nullable=True))
-    op.add_column("tasks", sa.Column("guest_id", sa.String(length=64), nullable=True))
-    op.create_index("ix_tasks_correlation_id", "tasks", ["correlation_id"], unique=False)
-    op.create_index("ix_tasks_guest_id", "tasks", ["guest_id"], unique=False)
+    def get_columns(table):
+        return [c["name"] for c in inspector.get_columns(table)]
 
-    op.add_column("domain_events", sa.Column("board_id", sa.String(length=36), nullable=True))
-    op.add_column("domain_events", sa.Column("correlation_id", sa.String(length=64), nullable=True))
-    op.add_column("domain_events", sa.Column("source", sa.String(length=50), nullable=True))
-    op.create_foreign_key(
-        "fk_domain_events_board_id_boards",
-        "domain_events",
-        "boards",
-        ["board_id"],
-        ["id"],
-    )
-    op.create_index("ix_domain_events_board_id", "domain_events", ["board_id"], unique=False)
-    op.create_index(
-        "ix_domain_events_correlation_id",
-        "domain_events",
-        ["correlation_id"],
-        unique=False,
-    )
+    def get_indexes(table):
+        return [i["name"] for i in inspector.get_indexes(table)]
 
-    op.add_column("automation_rules", sa.Column("board_id", sa.String(length=36), nullable=True))
-    op.create_foreign_key(
-        "fk_automation_rules_board_id_boards",
-        "automation_rules",
-        "boards",
-        ["board_id"],
-        ["id"],
-    )
-    op.create_index("ix_automation_rules_board_id", "automation_rules", ["board_id"], unique=False)
+    def get_fks(table):
+        return [f["name"] for f in inspector.get_foreign_keys(table)]
 
-    op.add_column("notifications", sa.Column("board_id", sa.String(length=36), nullable=True))
-    op.create_foreign_key(
-        "fk_notifications_board_id_boards",
-        "notifications",
-        "boards",
-        ["board_id"],
-        ["id"],
-    )
-    op.create_index("ix_notifications_board_id", "notifications", ["board_id"], unique=False)
+    # Boards columns
+    boards_cols = get_columns("boards")
+    if "public_id" not in boards_cols:
+        op.add_column("boards", sa.Column("public_id", sa.String(length=32), nullable=True))
+    if "image_path" not in boards_cols:
+        op.add_column("boards", sa.Column("image_path", sa.String(length=500), nullable=True))
+    if "retention_days" not in boards_cols:
+        op.add_column("boards", sa.Column("retention_days", sa.Integer(), nullable=False, server_default="3"))
+    if "expires_after_days" not in boards_cols:
+        op.add_column("boards", sa.Column("expires_after_days", sa.Integer(), nullable=False, server_default="3"))
+    if "last_activity_at" not in boards_cols:
+        op.add_column("boards", sa.Column("last_activity_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()))
+    if "archived_at" not in boards_cols:
+        op.add_column("boards", sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True))
 
-    op.add_column("incoming_tasks", sa.Column("board_id", sa.String(length=36), nullable=True))
-    op.create_foreign_key(
-        "fk_incoming_tasks_board_id_boards",
-        "incoming_tasks",
-        "boards",
-        ["board_id"],
-        ["id"],
-    )
-    op.create_index("ix_incoming_tasks_board_id", "incoming_tasks", ["board_id"], unique=False)
+    if "ix_boards_public_id" not in get_indexes("boards"):
+        op.create_index("ix_boards_public_id", "boards", ["public_id"], unique=True)
 
+    # Tasks columns
+    tasks_cols = get_columns("tasks")
+    if "correlation_id" not in tasks_cols:
+        op.add_column("tasks", sa.Column("correlation_id", sa.String(length=64), nullable=True))
+    if "guest_id" not in tasks_cols:
+        op.add_column("tasks", sa.Column("guest_id", sa.String(length=64), nullable=True))
+
+    tasks_indexes = get_indexes("tasks")
+    if "ix_tasks_correlation_id" not in tasks_indexes:
+        op.create_index("ix_tasks_correlation_id", "tasks", ["correlation_id"], unique=False)
+    if "ix_tasks_guest_id" not in tasks_indexes:
+        op.create_index("ix_tasks_guest_id", "tasks", ["guest_id"], unique=False)
+
+    # Domain events columns
+    de_cols = get_columns("domain_events")
+    if "board_id" not in de_cols:
+        op.add_column("domain_events", sa.Column("board_id", sa.String(length=36), nullable=True))
+    if "correlation_id" not in de_cols:
+        op.add_column("domain_events", sa.Column("correlation_id", sa.String(length=64), nullable=True))
+    if "source" not in de_cols:
+        op.add_column("domain_events", sa.Column("source", sa.String(length=50), nullable=True))
+
+    de_fks = get_fks("domain_events")
+    if "fk_domain_events_board_id_boards" not in de_fks:
+        op.create_foreign_key("fk_domain_events_board_id_boards", "domain_events", "boards", ["board_id"], ["id"])
+
+    de_indexes = get_indexes("domain_events")
+    if "ix_domain_events_board_id" not in de_indexes:
+        op.create_index("ix_domain_events_board_id", "domain_events", ["board_id"], unique=False)
+    if "ix_domain_events_correlation_id" not in de_indexes:
+        op.create_index("ix_domain_events_correlation_id", "domain_events", ["correlation_id"], unique=False)
+
+    # Automation rules
+    ar_cols = get_columns("automation_rules")
+    if "board_id" not in ar_cols:
+        op.add_column("automation_rules", sa.Column("board_id", sa.String(length=36), nullable=True))
+
+    ar_fks = get_fks("automation_rules")
+    if "fk_automation_rules_board_id_boards" not in ar_fks:
+        op.create_foreign_key("fk_automation_rules_board_id_boards", "automation_rules", "boards", ["board_id"], ["id"])
+
+    ar_indexes = get_indexes("automation_rules")
+    if "ix_automation_rules_board_id" not in ar_indexes:
+        op.create_index("ix_automation_rules_board_id", "automation_rules", ["board_id"], unique=False)
+
+    # Notifications
+    n_cols = get_columns("notifications")
+    if "board_id" not in n_cols:
+        op.add_column("notifications", sa.Column("board_id", sa.String(length=36), nullable=True))
+
+    n_fks = get_fks("notifications")
+    if "fk_notifications_board_id_boards" not in n_fks:
+        op.create_foreign_key("fk_notifications_board_id_boards", "notifications", "boards", ["board_id"], ["id"])
+
+    n_indexes = get_indexes("notifications")
+    if "ix_notifications_board_id" not in n_indexes:
+        op.create_index("ix_notifications_board_id", "notifications", ["board_id"], unique=False)
+
+    # Incoming tasks
+    it_cols = get_columns("incoming_tasks")
+    if "board_id" not in it_cols:
+        op.add_column("incoming_tasks", sa.Column("board_id", sa.String(length=36), nullable=True))
+
+    it_fks = get_fks("incoming_tasks")
+    if "fk_incoming_tasks_board_id_boards" not in it_fks:
+        op.create_foreign_key("fk_incoming_tasks_board_id_boards", "incoming_tasks", "boards", ["board_id"], ["id"])
+
+    it_indexes = get_indexes("incoming_tasks")
+    if "ix_incoming_tasks_board_id" not in it_indexes:
+        op.create_index("ix_incoming_tasks_board_id", "incoming_tasks", ["board_id"], unique=False)
+
+    # Data migration for public_id (Postgres compatible)
     op.execute(
         """
         UPDATE boards
-        SET public_id = substr(replace(hex(randomblob(16)), ' ', ''), 1, 32)
+        SET public_id = md5(random()::text || id)
         WHERE public_id IS NULL
         """
     )

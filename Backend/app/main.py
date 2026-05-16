@@ -15,7 +15,8 @@ from app.services.seed_service import seed_demo_data
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     loop = asyncio.get_running_loop()
-    Base.metadata.create_all(bind=engine)
+    # Database tables are managed by Alembic migrations.
+    # Base.metadata.create_all(bind=engine) is removed to avoid conflicts.
 
     settings = get_settings()
     if settings.seed_demo_data:
