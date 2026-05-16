@@ -2,11 +2,11 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  closestCenter,
+  closestCorners,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Column from '../Column/Column';
 import { TaskCardPreview } from '../TaskCard/TaskCard';
@@ -20,51 +20,66 @@ export default function Board({
   onOpenTask,
   onMoveTask,
 }) {
+  // localTasks is the optimistic view during drag and the committed view after
   const [activeId, setActiveId] = useState(null);
   const [localTasks, setLocalTasks] = useState(tasks);
+
+  // Snapshot of tasks at the moment drag started — never mutated during drag
+  const dragStartTasksRef = useRef(null);
+  // True while we are suppressing the next server-sync (right after we commit a move)
   const ignoreSyncRef = useRef(false);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 4,
+        // Require a small movement to distinguish drag from click
+        distance: 6,
       },
     }),
   );
 
+  // Sync server state → localTasks only when NOT dragging and not suppressed
   useEffect(() => {
-    if (!activeId) {
-      if (ignoreSyncRef.current) {
-        ignoreSyncRef.current = false;
-        return;
-      }
-      setLocalTasks(tasks);
+    if (activeId !== null) {
+      // Mid-drag: never overwrite optimistic state with server data
+      return;
     }
+    if (ignoreSyncRef.current) {
+      ignoreSyncRef.current = false;
+      return;
+    }
+    setLocalTasks(tasks);
   }, [tasks, activeId]);
 
   const activeTask = useMemo(() => {
-    if (!activeId) {
-      return null;
-    }
-    const activeTaskId = String(activeId).replace('task:', '');
-    return localTasks.find((task) => task.id === activeTaskId) ?? null;
+    if (!activeId) return null;
+    const id = String(activeId).replace('task:', '');
+    // Look up in the drag-start snapshot so the overlay never "jumps"
+    return (dragStartTasksRef.current ?? localTasks).find((t) => t.id === id) ?? null;
   }, [activeId, localTasks]);
 
-  const getDropTarget = (over, active, currentTasks) => {
-    if (!over) {
-      return null;
-    }
+  /**
+   * Given the droppable `over` and the active draggable descriptor, compute
+   * where the card should land.
+   *
+   * IMPORTANT: we always compute indices relative to `snapshot` (the task list
+   * at drag-start), not the live optimistic list.  This prevents accumulated
+   * errors when DragOver fires many times per second.
+   */
+  const resolveDropTarget = useCallback((over, active, snapshot) => {
+    if (!over) return null;
 
     const overId = String(over.id);
+
     if (overId.startsWith('task:')) {
       const overTaskId = overId.replace('task:', '');
-      const overTask = currentTasks.find((task) => task.id === overTaskId);
-      if (!overTask) {
-        return null;
-      }
-      const columnTasks = currentTasks.filter((task) => task.column_id === overTask.column_id);
-      let targetIndex = columnTasks.findIndex((task) => task.id === overTaskId);
+      const overTask = snapshot.find((t) => t.id === overTaskId);
+      if (!overTask) return null;
 
-      // Insert after the hovered card if the dragged card's center is below the hovered card's center
+      const columnTasks = snapshot.filter((t) => t.column_id === overTask.column_id);
+      let targetIndex = columnTasks.findIndex((t) => t.id === overTaskId);
+
+      // Insert *after* the hovered card when the dragged card's centre is below the hovered card's centre
       if (over.rect && active.rect?.current?.translated) {
         const overMidY = over.rect.top + over.rect.height / 2;
         const activeCenterY =
@@ -79,58 +94,53 @@ export default function Board({
 
     if (overId.startsWith('column:')) {
       const targetColumnId = overId.replace('column:', '');
-      const targetIndex = currentTasks.filter((task) => task.column_id === targetColumnId).length;
+      // Append to the end of the column
+      const targetIndex = snapshot.filter((t) => t.column_id === targetColumnId).length;
       return { targetColumnId, targetIndex };
     }
 
     return null;
-  };
+  }, []);
 
-  const handleDragStart = ({ active }) => {
+  const handleDragStart = useCallback(({ active }) => {
+    // Take a clean snapshot before any optimistic updates
+    dragStartTasksRef.current = localTasks;
     setActiveId(active.id);
-    setLocalTasks(tasks);
-  };
+  }, [localTasks]);
 
-  const handleDragOver = ({ active, over }) => {
-    if (!over || active.id === over.id) {
-      return;
-    }
+  const handleDragOver = useCallback(({ active, over }) => {
+    if (!over || active.id === over.id) return;
+
+    const snapshot = dragStartTasksRef.current;
+    if (!snapshot) return;
 
     const activeTaskId = String(active.id).replace('task:', '');
-    const activeTask = localTasks.find((task) => task.id === activeTaskId);
-    if (!activeTask) {
-      return;
-    }
 
-    const dropTarget = getDropTarget(over, active, localTasks);
-    if (!dropTarget) {
-      return;
-    }
+    const dropTarget = resolveDropTarget(over, active, snapshot);
+    if (!dropTarget) return;
 
     const { targetColumnId, targetIndex } = dropTarget;
 
-    // Always reorder optimistically during drag — let reorderTasks handle no-op cases
-    setLocalTasks(reorderTasks(localTasks, columns, activeTaskId, targetColumnId, targetIndex));
-  };
+    // Apply optimistic reorder against the snapshot so each DragOver event
+    // produces a clean result instead of accumulating tiny errors
+    const optimistic = reorderTasks(snapshot, columns, activeTaskId, targetColumnId, targetIndex);
+    setLocalTasks(optimistic);
+  }, [columns, resolveDropTarget]);
 
-  const handleDragEnd = ({ active, over }) => {
-    if (!over) {
+  const handleDragEnd = useCallback(({ active, over }) => {
+    const snapshot = dragStartTasksRef.current;
+    dragStartTasksRef.current = null;
+
+    if (!over || !snapshot) {
       setActiveId(null);
       setLocalTasks(tasks);
       return;
     }
 
     const activeTaskId = String(active.id).replace('task:', '');
-    // Use localTasks (already reordered by handleDragOver) to find the task
-    const activeTask = localTasks.find((task) => task.id === activeTaskId);
 
-    if (!activeTask) {
-      setActiveId(null);
-      setLocalTasks(tasks);
-      return;
-    }
-
-    const dropTarget = getDropTarget(over, active, localTasks);
+    // Resolve against the SNAPSHOT so the index matches what the server expects
+    const dropTarget = resolveDropTarget(over, active, snapshot);
     if (!dropTarget) {
       setActiveId(null);
       setLocalTasks(tasks);
@@ -139,36 +149,45 @@ export default function Board({
 
     const { targetColumnId, targetIndex } = dropTarget;
 
-    // Check if anything actually changed compared to original tasks
-    const originalTask = tasks.find((t) => t.id === activeTaskId);
-    const originalColumnTasks = tasks.filter((t) => t.column_id === targetColumnId);
+    // Check if the card actually moved
+    const originalTask = snapshot.find((t) => t.id === activeTaskId);
+    const originalColumnTasks = snapshot.filter((t) => t.column_id === targetColumnId);
     const originalIndex = originalColumnTasks.findIndex((t) => t.id === activeTaskId);
-    if (
+    const noChange =
       originalTask &&
       targetColumnId === originalTask.column_id &&
-      targetIndex === originalIndex
-    ) {
+      targetIndex === originalIndex;
+
+    if (noChange) {
       setActiveId(null);
       setLocalTasks(tasks);
       return;
     }
 
-    const finalTasks = reorderTasks(localTasks, columns, activeTaskId, targetColumnId, targetIndex);
+    // Commit optimistic state for the final position
+    const finalTasks = reorderTasks(snapshot, columns, activeTaskId, targetColumnId, targetIndex);
     ignoreSyncRef.current = true;
     setLocalTasks(finalTasks);
     setActiveId(null);
-    onMoveTask(activeTask, targetColumnId, targetIndex);
-  };
 
-  const handleDragCancel = () => {
+    // activeTask must be fetched from snapshot (task object carries version, etc.)
+    const activeTask = snapshot.find((t) => t.id === activeTaskId);
+    if (activeTask) {
+      onMoveTask(activeTask, targetColumnId, targetIndex);
+    }
+  }, [columns, tasks, resolveDropTarget, onMoveTask]);
+
+  const handleDragCancel = useCallback(() => {
+    dragStartTasksRef.current = null;
     setActiveId(null);
     setLocalTasks(tasks);
-  };
+  }, [tasks]);
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      // closestCorners works better than closestCenter for mixed column + card droppables
+      collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -187,7 +206,7 @@ export default function Board({
       </div>
       <DragOverlay
         dropAnimation={{
-          duration: 220,
+          duration: 200,
           easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
       >

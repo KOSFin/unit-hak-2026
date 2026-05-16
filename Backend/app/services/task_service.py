@@ -95,16 +95,56 @@ class TaskService:
         if not column:
             raise ValueError("Column not found")
 
+        source_column_id = task.column_id
+        target_column_id = payload.column_id
         status = payload.status or column.title
-        position = payload.position if payload.position is not None else task.position
 
+        # Desired 1-based target position; default to end of target column
+        desired_position = payload.position
+        if desired_position is None:
+            desired_position = self.task_repo.count_by_column(target_column_id) + 1
+
+        # Clamp to valid range
+        target_count = self.task_repo.count_by_column(target_column_id)
+        if source_column_id == target_column_id:
+            # Exclude the task itself from the count
+            max_pos = target_count
+        else:
+            max_pos = target_count + 1
+        desired_position = max(1, min(desired_position, max_pos))
+
+        # Update column, status, and temporarily put at a high position to avoid
+        # conflicts while we renumber — actual position will be set by reorder_positions
         updated = self.task_repo.update(
             task_id,
-            column_id=payload.column_id,
+            column_id=target_column_id,
             status=status,
-            position=position,
+            position=desired_position,
             version=task.version + 1,
         )
+        if not updated:
+            return None
+
+        # Renumber source column (if different from target, task already left it)
+        if source_column_id != target_column_id:
+            self.task_repo.reorder_positions(source_column_id)
+
+        # Renumber target column to make positions contiguous and honour desired_position.
+        # We need to insert at desired_position: shift others down first, then compact.
+        target_tasks = self.task_repo.list_by_column(target_column_id)
+        # Build new order: all tasks except moving one, insert moving task at desired_position
+        others = [t for t in target_tasks if t.id != task_id]
+        moving = next((t for t in target_tasks if t.id == task_id), None)
+        if moving:
+            insert_idx = min(desired_position - 1, len(others))
+            ordered = others[:insert_idx] + [moving] + others[insert_idx:]
+            for idx, t in enumerate(ordered, start=1):
+                if t.position != idx:
+                    t.position = idx
+            self.task_repo.session.commit()
+
+        # Refresh and return the moved task
+        updated = self.task_repo.get_by_id(task_id)
         if updated:
             self.event_service.record_event(
                 TASK_MOVED,

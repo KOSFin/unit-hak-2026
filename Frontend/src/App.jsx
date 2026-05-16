@@ -24,7 +24,7 @@ import TaskModal from './components/TaskModal/TaskModal';
 import Modal from './components/Ui/Modal';
 import Toast from './components/Ui/Toast';
 import { createRealtimeSocket } from './realtime/socket';
-import { reorderTasks } from './utils/reorderTasks';
+
 
 function sortColumns(columns) {
   return [...columns].sort((left, right) => left.position - right.position);
@@ -53,6 +53,9 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const toastTimeoutRef = useRef(null);
   const previousConnectionRef = useRef(connectionStatus);
+  // Set to true while the current user is dragging — prevents WS from
+  // triggering a loadBoard that would stomp the optimistic UI state in Board.
+  const isDraggingRef = useRef(false);
 
   const showToast = (message, tone = 'neutral') => {
     if (toastTimeoutRef.current) {
@@ -127,7 +130,11 @@ export default function App() {
           event.type.startsWith('column.') ||
           event.type === 'automation.triggered'
         ) {
-          await loadBoard();
+          // Skip board reload while THIS user is mid-drag to avoid stomping
+          // the optimistic UI state managed by Board.jsx.
+          if (!isDraggingRef.current) {
+            await loadBoard();
+          }
         }
 
         if (
@@ -204,22 +211,27 @@ export default function App() {
       return;
     }
 
-    const previousTasks = tasks;
-    const nextTasks = reorderTasks(tasks, board.columns, task.id, targetColumnId, targetIndex);
-    setTasks(nextTasks);
+    // Mark drag as in-progress so WS events don't trigger a board reload
+    // that would stomp the optimistic state managed by Board.jsx.
+    isDraggingRef.current = true;
 
     try {
       setBusy(true);
       await moveTask(task.id, {
         column_id: targetColumnId,
+        // Backend expects 1-based position
         position: targetIndex + 1,
         version: task.version,
       });
+      // Reload once after the move is confirmed so tasks get the updated
+      // versions and canonical positions from the server.
       await loadBoard();
     } catch (error) {
-      setTasks(previousTasks);
       showToast(getErrorMessage(error), 'danger');
+      // On failure, reload to restore the authoritative server state
+      await loadBoard();
     } finally {
+      isDraggingRef.current = false;
       setBusy(false);
     }
   };

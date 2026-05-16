@@ -45,6 +45,10 @@ class TaskRepository:
         stmt = select(Task).where(Task.board_id == board_id).order_by(Task.position)
         return list(self.session.execute(stmt).scalars().all())
 
+    def list_by_column(self, column_id: str) -> list[Task]:
+        stmt = select(Task).where(Task.column_id == column_id).order_by(Task.position)
+        return list(self.session.execute(stmt).scalars().all())
+
     def list_all(self) -> list[Task]:
         stmt = select(Task).order_by(Task.position)
         return list(self.session.execute(stmt).scalars().all())
@@ -60,6 +64,14 @@ class TaskRepository:
     def count_by_column(self, column_id: str) -> int:
         stmt = select(func.count()).where(Task.column_id == column_id)
         return int(self.session.execute(stmt).scalar_one())
+
+    def reorder_positions(self, column_id: str) -> None:
+        """Renumber all tasks in a column so positions are contiguous 1-based integers."""
+        tasks = self.list_by_column(column_id)
+        for idx, task in enumerate(tasks, start=1):
+            if task.position != idx:
+                task.position = idx
+        self.session.commit()
 
     def update(self, task_id: str, **changes) -> Task | None:
         task = self.get_by_id(task_id)
