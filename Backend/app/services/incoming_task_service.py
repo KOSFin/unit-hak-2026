@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.models.incoming_task import IncomingTask, IncomingTaskStatus
-from app.models.task import TaskPriority
 from app.queue.message_types import (
     INCOMING_TASK_PROCESSED,
     INCOMING_TASK_RECEIVED,
@@ -125,7 +124,7 @@ class IncomingTaskService:
             raise ValueError("To Do column not found")
 
         enriched_tags = list(dict.fromkeys([*tags, "from-api"]))
-        priority = TaskPriority.HIGH if "urgent" in enriched_tags else TaskPriority.MEDIUM
+        priority = TaskPriority.MEDIUM
         task = self.task_service.create_task(
             TaskCreate(
                 board_id=board.id,

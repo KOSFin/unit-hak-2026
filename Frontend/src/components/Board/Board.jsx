@@ -69,6 +69,14 @@ export default function Board({
   const resolveDropTarget = useCallback((over, active, snapshot) => {
     if (!over) return null;
 
+    const activeTaskId = String(active.id).replace('task:', '');
+    const activeTask = snapshot.find((task) => task.id === activeTaskId);
+    const sourceColumnId = activeTask?.column_id ?? null;
+    const sourceColumnTasks = sourceColumnId
+      ? snapshot.filter((task) => task.column_id === sourceColumnId)
+      : [];
+    const sourceIndex = sourceColumnTasks.findIndex((task) => task.id === activeTaskId);
+
     const overId = String(over.id);
 
     if (overId.startsWith('task:')) {
@@ -89,13 +97,20 @@ export default function Board({
         }
       }
 
+      if (sourceColumnId === overTask.column_id && sourceIndex !== -1 && sourceIndex < targetIndex) {
+        targetIndex -= 1;
+      }
+
       return { targetColumnId: overTask.column_id, targetIndex };
     }
 
     if (overId.startsWith('column:')) {
       const targetColumnId = overId.replace('column:', '');
       // Append to the end of the column
-      const targetIndex = snapshot.filter((t) => t.column_id === targetColumnId).length;
+      let targetIndex = snapshot.filter((t) => t.column_id === targetColumnId).length;
+      if (sourceColumnId === targetColumnId && sourceIndex !== -1) {
+        targetIndex = Math.max(0, targetIndex - 1);
+      }
       return { targetColumnId, targetIndex };
     }
 

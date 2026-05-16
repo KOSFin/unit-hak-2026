@@ -7,11 +7,11 @@ import Textarea from '../Ui/Textarea';
 import styles from './RulesPanel.module.css';
 
 const DEFAULT_CONDITION = '{\n  "tag": "urgent"\n}';
-const DEFAULT_ACTION = '{\n  "set_priority": "HIGH"\n}';
+const DEFAULT_ACTION = '{\n  "set_priority": "HIGH",\n  "notify": "Priority set to HIGH because tag \'urgent\' is present"\n}';
 
 export default function RulesPanel({ rules, onCreateRule, onToggleRule, onDeleteRule, pending }) {
   const [name, setName] = useState('New automation rule');
-  const [triggerType, setTriggerType] = useState('TASK_CREATED');
+  const [triggerType, setTriggerType] = useState('TASK_ANY');
   const [condition, setCondition] = useState(DEFAULT_CONDITION);
   const [action, setAction] = useState(DEFAULT_ACTION);
   const [error, setError] = useState('');
@@ -65,6 +65,7 @@ export default function RulesPanel({ rules, onCreateRule, onToggleRule, onDelete
       <div className={styles.form}>
         <Input label="Rule name" value={name} onChange={(event) => setName(event.target.value)} />
         <Select label="Trigger" value={triggerType} onChange={(event) => setTriggerType(event.target.value)}>
+          <option value="TASK_ANY">TASK_ANY</option>
           <option value="TASK_CREATED">TASK_CREATED</option>
           <option value="TASK_UPDATED">TASK_UPDATED</option>
           <option value="TASK_MOVED">TASK_MOVED</option>

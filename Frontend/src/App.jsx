@@ -125,6 +125,16 @@ export default function App() {
       onClose: () => setConnectionStatus('offline'),
       onError: () => setConnectionStatus('offline'),
       onMessage: async (event) => {
+        if (event.type === 'automation.triggered') {
+          const boardId = event.payload?.board_id;
+          if (!boardId || boardId === board?.id) {
+            const toast = event.payload?.toast;
+            if (toast?.message) {
+              showToast(toast.message, toast.tone ?? 'neutral');
+            }
+          }
+        }
+
         if (
           event.type.startsWith('task.') ||
           event.type.startsWith('column.') ||
