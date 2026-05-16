@@ -15,11 +15,13 @@ class IncomingTaskRepository:
         external_id: str,
         raw_payload: dict,
         status: IncomingTaskStatus,
+        board_id: str | None = None,
     ) -> IncomingTask:
         incoming = IncomingTask(
             external_id=external_id,
             raw_payload=raw_payload,
             status=status,
+            board_id=board_id,
         )
         self.session.add(incoming)
         self.session.commit()
@@ -33,8 +35,11 @@ class IncomingTaskRepository:
         stmt = select(IncomingTask).where(IncomingTask.external_id == external_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def list_all(self) -> list[IncomingTask]:
-        stmt = select(IncomingTask).order_by(IncomingTask.created_at.desc())
+    def list_all(self, board_id: str | None = None) -> list[IncomingTask]:
+        stmt = select(IncomingTask)
+        if board_id:
+            stmt = stmt.where(IncomingTask.board_id == board_id)
+        stmt = stmt.order_by(IncomingTask.created_at.desc())
         return list(self.session.execute(stmt).scalars().all())
 
     def update_status(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -17,7 +18,9 @@ from app.queue.message_types import (
 from app.repositories.event_repository import DomainEventRepository
 from app.schemas.event import DomainEventSchema
 from app.services.automation_service import AutomationService
+from app.services.cleanup_service import CleanupService
 from app.services.incoming_task_service import IncomingTaskService
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -92,15 +95,28 @@ def main() -> int:
         return 1
 
     try:
+        settings = get_settings()
+        cleanup_service = CleanupService(SessionLocal())
+        stop_event = threading.Event()
+
+        def cleanup_loop() -> None:
+            while not stop_event.wait(settings.board_cleanup_interval_seconds):
+                cleanup_service.cleanup_inactive_boards(settings.default_board_retention_days)
+
+        cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
+        cleanup_thread.start()
         consumer.consume(process_event)
     except KeyboardInterrupt:
+        stop_event.set()
         consumer.close()
         return 0
     except Exception:
         logger.exception("Worker crashed")
+        stop_event.set()
         consumer.close()
         return 1
 
+    stop_event.set()
     consumer.close()
     return 0
 

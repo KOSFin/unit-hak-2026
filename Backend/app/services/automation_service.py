@@ -102,6 +102,8 @@ class AutomationService:
                     "task": serialize_task(updated),
                     "automation": {"rules": [effect.rule_id for effect in triggered]},
                 },
+                board_id=updated.board_id,
+                source="WORKER",
             )
 
         for effect in triggered:
@@ -112,11 +114,11 @@ class AutomationService:
                     type="automation",
                     task_id=updated.id,
                 )
-            self.event_service.record_event(
-                AUTOMATION_TRIGGERED,
-                "automation_rule",
-                updated.id,
-                {
+                self.event_service.record_event(
+                    AUTOMATION_TRIGGERED,
+                    "automation_rule",
+                    updated.id,
+                    {
                     "board_id": updated.board_id,
                     "task": serialize_task(updated),
                     "rule": {
@@ -125,12 +127,14 @@ class AutomationService:
                     },
                     "changes": effect.changes,
                     "message": effect.message,
-                    "toast": {
-                        "message": effect.message,
-                        "tone": effect.toast_tone,
+                        "toast": {
+                            "message": effect.message,
+                            "tone": effect.toast_tone,
+                        },
                     },
-                },
-            )
+                    board_id=updated.board_id,
+                    source="WORKER",
+                )
 
         return updated
 

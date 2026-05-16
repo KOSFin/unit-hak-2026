@@ -32,11 +32,14 @@ class ColumnService:
             position=position,
             is_default=payload.is_default,
         )
+        self.board_repo.update_last_activity(column.board_id)
         self.event_service.record_event(
             COLUMN_CREATED,
             "column",
             column.id,
             {"column": serialize_column(column)},
+            board_id=column.board_id,
+            source="API",
         )
         return column
 
@@ -46,11 +49,14 @@ class ColumnService:
             return self.column_repo.get_by_id(column_id)
         column = self.column_repo.update(column_id, **changes)
         if column:
+            self.board_repo.update_last_activity(column.board_id)
             self.event_service.record_event(
                 COLUMN_UPDATED,
                 "column",
                 column_id,
                 {"column": serialize_column(column)},
+                board_id=column.board_id,
+                source="API",
             )
         return column
 
@@ -62,11 +68,14 @@ class ColumnService:
             return False
         deleted = self.column_repo.delete(column_id)
         if deleted:
+            self.board_repo.update_last_activity(column.board_id)
             self.event_service.record_event(
                 COLUMN_DELETED,
                 "column",
                 column_id,
                 {"column": serialize_column(column)},
+                board_id=column.board_id,
+                source="API",
             )
         return deleted
 

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.models.incoming_task import IncomingTask, IncomingTaskStatus
+from app.models.task import TaskPriority
 from app.queue.message_types import (
     INCOMING_TASK_PROCESSED,
     INCOMING_TASK_RECEIVED,
@@ -35,8 +36,9 @@ class IncomingTaskService:
         skip: int = 0,
         limit: int = 50,
         status: str | None = None,
+        board_id: str | None = None,
     ) -> list[IncomingTask]:
-        tasks = self.repo.list_all()
+        tasks = self.repo.list_all(board_id=board_id)
         if status:
             tasks = [task for task in tasks if task.status.value == status]
         return tasks[skip : skip + limit]
@@ -56,12 +58,15 @@ class IncomingTaskService:
             external_id=payload.external_id,
             raw_payload=payload.raw_payload,
             status=IncomingTaskStatus.RECEIVED,
+            board_id=payload.board_id,
         )
         self.event_service.record_event(
             INCOMING_TASK_RECEIVED,
             "incoming_task",
             incoming.id,
             {"incoming_task": serialize_incoming_task(incoming)},
+            board_id=incoming.board_id,
+            source="API",
         )
         return incoming
 
@@ -88,6 +93,8 @@ class IncomingTaskService:
                     "incoming_task",
                     updated.id,
                     {"incoming_task": serialize_incoming_task(updated)},
+                    board_id=updated.board_id,
+                    source="WORKER",
                 )
             return updated
 
@@ -104,6 +111,8 @@ class IncomingTaskService:
                     "incoming_task",
                     updated.id,
                     {"incoming_task": serialize_incoming_task(updated)},
+                    board_id=updated.board_id,
+                    source="WORKER",
                 )
             return updated
 
@@ -114,12 +123,15 @@ class IncomingTaskService:
                 "incoming_task",
                 validated.id,
                 {"incoming_task": serialize_incoming_task(validated)},
+                board_id=validated.board_id,
+                source="WORKER",
             )
 
         board = self.board_repo.get_default()
-        if not board:
+        if not board and not incoming.board_id:
             raise ValueError("Default board not found")
-        todo_column = self.column_repo.get_by_title(board.id, "To Do")
+        board_id = incoming.board_id or board.id
+        todo_column = self.column_repo.get_by_title(board_id, "To Do")
         if not todo_column:
             raise ValueError("To Do column not found")
 
@@ -127,7 +139,7 @@ class IncomingTaskService:
         priority = TaskPriority.MEDIUM
         task = self.task_service.create_task(
             TaskCreate(
-                board_id=board.id,
+                board_id=board_id,
                 column_id=todo_column.id,
                 title=title,
                 description=raw_payload.get("description"),
@@ -157,6 +169,8 @@ class IncomingTaskService:
                         "title": task.title,
                     },
                 },
+                board_id=task.board_id,
+                source="WORKER",
             )
 
         self.notification_service.create_notification(
@@ -164,6 +178,7 @@ class IncomingTaskService:
             message=f"Task '{task.title}' was created from the API queue.",
             type="incoming-task",
             task_id=task.id,
+            board_id=task.board_id,
         )
         return processed
 

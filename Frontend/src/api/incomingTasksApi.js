@@ -1,7 +1,9 @@
-import { apiClient } from './client';
+import { apiClient, boardParams } from './client';
 
-export async function getIncomingTasks() {
-  const { data } = await apiClient.get('/api/incoming-tasks');
+export async function getIncomingTasks(boardId = null) {
+  const { data } = await apiClient.get('/api/incoming-tasks', {
+    params: boardParams(boardId),
+  });
   return data;
 }
 

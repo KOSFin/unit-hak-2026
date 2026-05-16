@@ -15,6 +15,8 @@ class TaskCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     deadline: datetime | None = None
     position: int | None = None
+    correlation_id: str | None = None
+    guest_id: str | None = None
 
 
 class TaskUpdate(BaseModel):
@@ -25,6 +27,8 @@ class TaskUpdate(BaseModel):
     tags: list[str] | None = None
     deadline: datetime | None = None
     version: int
+    correlation_id: str | None = None
+    guest_id: str | None = None
 
 
 class TaskMove(BaseModel):
@@ -32,6 +36,8 @@ class TaskMove(BaseModel):
     status: str | None = None
     position: int | None = None
     version: int
+    correlation_id: str | None = None
+    guest_id: str | None = None
 
 
 class TaskRead(BaseModel):
@@ -48,5 +54,7 @@ class TaskRead(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    correlation_id: str | None = None
+    guest_id: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

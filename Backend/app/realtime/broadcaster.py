@@ -34,6 +34,9 @@ def build_realtime_message(event: DomainEventSchema) -> RealtimeEventSchema:
         type=realtime_type,
         payload=payload,
         createdAt=_isoformat(event.created_at),
+        boardId=event.board_id,
+        correlationId=event.correlation_id,
+        source=event.source,
     )
 
 
@@ -78,7 +81,9 @@ class RealtimeRelay(threading.Thread):
             logger.exception("Failed to decode realtime event")
             return
 
-        asyncio.run_coroutine_threadsafe(manager.broadcast(message), self.loop)
+        board_id = event.board_id
+        if board_id:
+            asyncio.run_coroutine_threadsafe(manager.broadcast(board_id, message), self.loop)
 
     def stop(self) -> None:
         self._stop_event.set()

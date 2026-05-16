@@ -20,6 +20,8 @@ class TaskRepository:
         deadline,
         position: int,
         version: int = 1,
+        correlation_id: str | None = None,
+        guest_id: str | None = None,
     ) -> Task:
         task = Task(
             board_id=board_id,
@@ -33,6 +35,10 @@ class TaskRepository:
             position=position,
             version=version,
         )
+        if correlation_id is not None:
+            setattr(task, "correlation_id", correlation_id)
+        if guest_id is not None:
+            setattr(task, "guest_id", guest_id)
         self.session.add(task)
         self.session.commit()
         self.session.refresh(task)

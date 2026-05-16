@@ -18,6 +18,7 @@ class IncomingTask(Base):
     __tablename__ = "incoming_tasks"
 
     id = sa.Column(sa.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    board_id = sa.Column(sa.String(36), sa.ForeignKey("boards.id"), nullable=True, index=True)
     external_id = sa.Column(sa.String(200), nullable=False, unique=True)
     raw_payload = sa.Column(sa.JSON, nullable=False, default=dict)
     status = sa.Column(

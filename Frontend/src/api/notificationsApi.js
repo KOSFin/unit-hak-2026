@@ -1,8 +1,11 @@
-import { apiClient } from './client';
+import { apiClient, boardParams } from './client';
 
-export async function getNotifications(unreadOnly = false) {
+export async function getNotifications(unreadOnly = false, boardId = null) {
   const { data } = await apiClient.get('/api/notifications', {
-    params: unreadOnly ? { unread_only: true } : undefined,
+    params: {
+      ...(unreadOnly ? { unread_only: true } : {}),
+      ...(boardParams(boardId) ?? {}),
+    },
   });
   return data;
 }

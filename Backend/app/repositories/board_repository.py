@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+from secrets import token_urlsafe
+
+import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,8 +14,22 @@ class BoardRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def create(self, name: str) -> Board:
-        board = Board(name=name)
+    def create(
+        self,
+        name: str,
+        public_id: str | None = None,
+        retention_days: int = 3,
+        image_path: str | None = None,
+    ) -> Board:
+        if not public_id:
+            public_id = token_urlsafe(12).replace("-", "").replace("_", "")[:20]
+        board = Board(
+            name=name,
+            public_id=public_id,
+            retention_days=retention_days,
+            expires_after_days=retention_days,
+            image_path=image_path,
+        )
         self.session.add(board)
         self.session.commit()
         self.session.refresh(board)
@@ -22,6 +40,10 @@ class BoardRepository:
 
     def get_by_name(self, name: str) -> Board | None:
         stmt = select(Board).where(Board.name == name)
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    def get_by_public_id(self, public_id: str) -> Board | None:
+        stmt = select(Board).where(Board.public_id == public_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
     def list_all(self) -> list[Board]:
@@ -47,3 +69,21 @@ class BoardRepository:
         self.session.delete(board)
         self.session.commit()
         return True
+
+    def update_last_activity(self, board_id: str, at=None) -> Board | None:
+        board = self.get_by_id(board_id)
+        if not board:
+            return None
+        board.last_activity_at = at or datetime.now(UTC)
+        self.session.commit()
+        self.session.refresh(board)
+        return board
+
+    def archive(self, board_id: str) -> Board | None:
+        board = self.get_by_id(board_id)
+        if not board:
+            return None
+        board.archived_at = datetime.now(UTC)
+        self.session.commit()
+        self.session.refresh(board)
+        return board

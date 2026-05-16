@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class IncomingTaskResponse(BaseModel):
     id: str
+    board_id: str | None
     external_id: str
     raw_payload: dict[str, Any]
     status: str
@@ -19,3 +20,4 @@ class IncomingTaskResponse(BaseModel):
 class IncomingTaskCreate(BaseModel):
     external_id: str
     raw_payload: dict[str, Any] = Field(default_factory=dict)
+    board_id: str | None = None

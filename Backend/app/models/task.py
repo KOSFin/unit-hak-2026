@@ -32,6 +32,8 @@ class Task(Base):
     deadline = sa.Column(sa.DateTime(timezone=True), nullable=True)
     position = sa.Column(sa.Integer, nullable=False, default=0)
     version = sa.Column(sa.Integer, nullable=False, default=1)
+    correlation_id = sa.Column(sa.String(64), nullable=True, index=True)
+    guest_id = sa.Column(sa.String(64), nullable=True, index=True)
     created_at = sa.Column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at = sa.Column(
         sa.DateTime(timezone=True),

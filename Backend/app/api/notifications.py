@@ -20,6 +20,7 @@ def get_notifications(
     skip: int = 0,
     limit: int = 50,
     unread_only: bool = False,
+    board_id: str | None = None,
 ) -> list[NotificationResponse]:
     service = NotificationService(session)
     return [
@@ -28,6 +29,7 @@ def get_notifications(
             skip=skip,
             limit=limit,
             unread_only=unread_only,
+            board_id=board_id,
         )
     ]
 

@@ -14,8 +14,14 @@ class NotificationService:
         self.task_repo = TaskRepository(session)
         self.event_service = EventService(session)
 
-    def list_notifications(self, skip: int = 0, limit: int = 50, unread_only: bool = False):
-        notifications = self.repo.list_all()
+    def list_notifications(
+        self,
+        skip: int = 0,
+        limit: int = 50,
+        unread_only: bool = False,
+        board_id: str | None = None,
+    ):
+        notifications = self.repo.list_all(board_id=board_id)
         if unread_only:
             notifications = [n for n in notifications if not n.read]
         return notifications[skip : skip + limit]
@@ -26,13 +32,22 @@ class NotificationService:
     def mark_all_as_read(self) -> int:
         return self.repo.mark_all_read()
 
-    def create_notification(self, title: str, message: str, type: str, task_id: str | None = None):
-        notification = self.repo.create(title, message, type, task_id)
+    def create_notification(
+        self,
+        title: str,
+        message: str,
+        type: str,
+        task_id: str | None = None,
+        board_id: str | None = None,
+    ):
+        notification = self.repo.create(title, message, type, task_id, board_id=board_id)
         self.event_service.record_event(
             NOTIFICATION_CREATED,
             "notification",
             notification.id,
             self._serialize_payload(notification),
+            board_id=board_id,
+            source="SYSTEM",
         )
         return notification
 

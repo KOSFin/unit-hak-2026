@@ -32,6 +32,9 @@ class TaskService:
     def get_task(self, task_id: str) -> Task | None:
         return self.task_repo.get_by_id(task_id)
 
+    def touch_board(self, board_id: str) -> None:
+        self.board_repo.update_last_activity(board_id)
+
     def create_task(self, payload: TaskCreate) -> Task:
         if not self.board_repo.get_by_id(payload.board_id):
             raise ValueError("Board not found")
@@ -54,12 +57,18 @@ class TaskService:
             tags=list(payload.tags),
             deadline=payload.deadline,
             position=position,
+            correlation_id=payload.correlation_id,
+            guest_id=payload.guest_id,
         )
+        self.touch_board(task.board_id)
         self.event_service.record_event(
             TASK_CREATED,
             "task",
             task.id,
             {"task": serialize_task(task)},
+            board_id=task.board_id,
+            correlation_id=payload.correlation_id,
+            source="API",
         )
         return task
 
@@ -76,11 +85,15 @@ class TaskService:
         changes["version"] = task.version + 1
         updated = self.task_repo.update(task_id, **changes)
         if updated:
+            self.touch_board(updated.board_id)
             self.event_service.record_event(
                 TASK_UPDATED,
                 "task",
                 task_id,
                 {"task": serialize_task(updated)},
+                board_id=updated.board_id,
+                correlation_id=payload.correlation_id,
+                source="API",
             )
         return updated
 
@@ -121,6 +134,8 @@ class TaskService:
             status=status,
             position=desired_position,
             version=task.version + 1,
+            correlation_id=payload.correlation_id,
+            guest_id=payload.guest_id,
         )
         if not updated:
             return None
@@ -146,11 +161,15 @@ class TaskService:
         # Refresh and return the moved task
         updated = self.task_repo.get_by_id(task_id)
         if updated:
+            self.touch_board(updated.board_id)
             self.event_service.record_event(
                 TASK_MOVED,
                 "task",
                 task_id,
                 {"task": serialize_task(updated)},
+                board_id=updated.board_id,
+                correlation_id=payload.correlation_id,
+                source="API",
             )
         return updated
 
@@ -160,11 +179,14 @@ class TaskService:
             return False
         deleted = self.task_repo.delete(task_id)
         if deleted:
+            self.touch_board(task.board_id)
             self.event_service.record_event(
                 TASK_DELETED,
                 "task",
                 task_id,
                 {"task": serialize_task(task)},
+                board_id=task.board_id,
+                source="API",
             )
         return deleted
 
@@ -187,4 +209,6 @@ def serialize_task(task: Task) -> dict:
         "version": task.version,
         "created_at": to_iso(task.created_at),
         "updated_at": to_iso(task.updated_at),
+        "correlation_id": getattr(task, "correlation_id", None),
+        "guest_id": getattr(task, "guest_id", None),
     }

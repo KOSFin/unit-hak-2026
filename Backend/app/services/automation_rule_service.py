@@ -23,6 +23,7 @@ class AutomationRuleService:
             trigger_type=payload.trigger_type,
             condition=payload.condition,
             action=payload.action,
+            board_id=getattr(payload, "board_id", None),
         )
 
     def update_rule(

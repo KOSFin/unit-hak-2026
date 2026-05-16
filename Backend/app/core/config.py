@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     frontend_public_url: str | None = None
     backend_public_url: str | None = None
     backend_internal_port: int = 8000
+    uploads_dir: str = "uploads"
+    max_upload_size_bytes: int = 5 * 1024 * 1024
+    default_board_retention_days: int = 3
+    board_cleanup_interval_seconds: int = 3600
+    public_board_url_base: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=(".env", ".env.compose"),

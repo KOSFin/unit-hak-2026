@@ -16,11 +16,17 @@ class DomainEventRepository:
         entity_type: str,
         entity_id: str | None,
         payload: dict,
+        board_id: str | None = None,
+        correlation_id: str | None = None,
+        source: str | None = None,
     ) -> DomainEvent:
         event = DomainEvent(
             type=event_type,
             entity_type=entity_type,
             entity_id=entity_id,
+            board_id=board_id,
+            correlation_id=correlation_id,
+            source=source,
             payload=payload,
         )
         self.session.add(event)
@@ -33,6 +39,13 @@ class DomainEventRepository:
 
     def list_unprocessed(self) -> list[DomainEvent]:
         stmt = select(DomainEvent).where(DomainEvent.processed.is_(False))
+        return list(self.session.execute(stmt).scalars().all())
+
+    def list_recent(self, board_id: str | None = None, limit: int = 50) -> list[DomainEvent]:
+        stmt = select(DomainEvent)
+        if board_id:
+            stmt = stmt.where(DomainEvent.board_id == board_id)
+        stmt = stmt.order_by(DomainEvent.created_at.desc()).limit(limit)
         return list(self.session.execute(stmt).scalars().all())
 
     def mark_processed(self, event_id: str) -> DomainEvent | None:

@@ -29,7 +29,18 @@ class EventService:
         entity_type: str,
         entity_id: str | None,
         payload: dict,
+        board_id: str | None = None,
+        correlation_id: str | None = None,
+        source: str | None = None,
     ):
-        event = self.repo.create(event_type, entity_type, entity_id, payload)
+        event = self.repo.create(
+            event_type,
+            entity_type,
+            entity_id,
+            payload,
+            board_id=board_id,
+            correlation_id=correlation_id,
+            source=source,
+        )
         self.publisher.publish(event)
         return event

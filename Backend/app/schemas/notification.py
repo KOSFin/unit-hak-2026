@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class NotificationResponse(BaseModel):
     id: str
+    board_id: str | None
     title: str
     message: str
     type: str

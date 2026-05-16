@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AutomationRuleCreate(BaseModel):
+    board_id: str | None = None
     name: str
     enabled: bool = True
     trigger_type: str
@@ -22,6 +23,7 @@ class AutomationRuleUpdate(BaseModel):
 
 class AutomationRuleRead(BaseModel):
     id: str
+    board_id: str | None
     name: str
     enabled: bool
     trigger_type: str

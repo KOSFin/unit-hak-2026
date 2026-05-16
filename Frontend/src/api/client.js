@@ -9,6 +9,15 @@ export const apiClient = axios.create({
   },
 });
 
+export function boardParams(boardId) {
+  return boardId ? { board_id: boardId } : undefined;
+}
+
+export function getBoardPublicUrl(publicBoardId) {
+  const base = import.meta.env.VITE_PUBLIC_BOARD_URL_BASE;
+  return base ? `${base.replace(/\/$/, '')}/board/${publicBoardId}` : `/board/${publicBoardId}`;
+}
+
 export function getErrorMessage(error, fallback = 'Unexpected error') {
   if (error?.response?.data?.detail) {
     const detail = error.response.data.detail;

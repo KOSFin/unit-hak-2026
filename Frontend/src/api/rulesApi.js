@@ -1,7 +1,9 @@
-import { apiClient } from './client';
+import { apiClient, boardParams } from './client';
 
-export async function getRules() {
-  const { data } = await apiClient.get('/api/automation-rules');
+export async function getRules(boardId = null) {
+  const { data } = await apiClient.get('/api/automation-rules', {
+    params: boardParams(boardId),
+  });
   return data;
 }
 

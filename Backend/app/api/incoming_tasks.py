@@ -17,11 +17,12 @@ def get_incoming_tasks(
     skip: int = 0,
     limit: int = 50,
     task_status: str | None = None,
+    board_id: str | None = None,
 ) -> list[IncomingTaskResponse]:
     service = IncomingTaskService(session)
     return [
         IncomingTaskResponse.model_validate(task)
-        for task in service.list_tasks(skip=skip, limit=limit, status=task_status)
+        for task in service.list_tasks(skip=skip, limit=limit, status=task_status, board_id=board_id)
     ]
 
 

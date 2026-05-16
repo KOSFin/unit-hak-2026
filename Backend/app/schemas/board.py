@@ -7,7 +7,13 @@ from app.schemas.column import ColumnRead
 
 class BoardRead(BaseModel):
     id: str
+    public_id: str
     name: str
+    image_path: str | None = None
+    retention_days: int
+    expires_after_days: int
+    last_activity_at: datetime
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -16,3 +22,12 @@ class BoardRead(BaseModel):
 
 class BoardDetail(BoardRead):
     columns: list[ColumnRead] = Field(default_factory=list)
+
+
+class BoardCreate(BaseModel):
+    name: str
+    retention_days: int = 3
+
+
+class BoardCreatedResponse(BoardRead):
+    board_url: str
