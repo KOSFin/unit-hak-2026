@@ -4,6 +4,7 @@ from app.models.domain_event import DomainEvent
 from app.queue.consumer import RabbitMQConsumer
 from app.queue.message_types import NOTIFICATION_CREATED, TASK_CREATED
 from app.queue.publisher import EventPublisher, MockPublisher, RabbitMQPublisher
+from app.schemas.event import ActivityEventRead
 
 
 def test_mock_and_rabbitmq_publisher(monkeypatch):
@@ -225,3 +226,23 @@ def test_publisher_connect_and_abstract_publish(monkeypatch):
     )()
     publisher.publish(event)
     assert publisher.channel is None
+
+
+def test_activity_event_read_from_attributes():
+    event = DomainEvent(
+        id="event-3",
+        type=TASK_CREATED,
+        entity_type="task",
+        entity_id="task-3",
+        board_id="board-1",
+        correlation_id="corr-1",
+        source="api",
+        payload={"task": {"id": "task-3"}},
+        created_at=datetime.now(UTC),
+    )
+
+    dto = ActivityEventRead.model_validate(event)
+
+    assert dto.id == "event-3"
+    assert dto.board_id == "board-1"
+    assert dto.source == "api"
