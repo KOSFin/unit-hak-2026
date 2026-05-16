@@ -38,6 +38,16 @@ export default function Board({
     }),
   );
 
+  const collisionDetection = useCallback((args) => {
+    const collisions = closestCorners(args);
+    const nonActive = collisions.filter((collision) => collision.id !== args.active.id);
+    const candidates = nonActive.length ? nonActive : collisions;
+    const taskCollisions = candidates.filter((collision) =>
+      String(collision.id).startsWith('task:'),
+    );
+    return taskCollisions.length ? taskCollisions : candidates;
+  }, []);
+
   // Sync server state → localTasks only when NOT dragging and not suppressed
   useEffect(() => {
     if (activeId !== null) {
@@ -201,8 +211,8 @@ export default function Board({
   return (
     <DndContext
       sensors={sensors}
-      // closestCorners works better than closestCenter for mixed column + card droppables
-      collisionDetection={closestCorners}
+      // Prefer task collisions so we can reliably drop at any index
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
