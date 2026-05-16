@@ -61,3 +61,16 @@ def test_resolved_database_url_passthrough_branches(monkeypatch):
 
     settings = Settings(DATABASE_URL="postgresql+psycopg://demo:secret@db:5432/flowboard")
     assert settings.resolved_database_url() == "postgresql+psycopg://demo:secret@db:5432/flowboard"
+
+
+def test_settings_ignore_extra_env_fields():
+    settings = Settings(
+        DATABASE_URL="sqlite+pysqlite:///:memory:",
+        COMPOSE_PROJECT_NAME="flowboard",
+        FRONTEND_INTERNAL_PORT="3000",
+        VITE_API_BASE_URL="https://api.flowboard.example.com",
+        POSTGRES_DB="flowboard",
+        RABBITMQ_DEFAULT_USER="flowboard",
+    )
+
+    assert settings.database_url == "sqlite+pysqlite:///:memory:"
