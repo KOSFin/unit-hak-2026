@@ -87,14 +87,14 @@ def test_event_notification_rule_seed_and_automation_services(
 ):
     board = seeded_board["board"]
     todo = seeded_board["todo"]
-    in_progress = seeded_board["in_progress"]
+
 
     task = TaskService(db_session).create_task(
         TaskCreate(
             board_id=board.id,
             column_id=todo.id,
             title="Urgent task",
-            tags=["urgent", "auto-progress"],
+            tags=["urgent"],
             deadline=datetime.now(UTC) + timedelta(hours=2),
         )
     )
@@ -126,7 +126,6 @@ def test_event_notification_rule_seed_and_automation_services(
     automation = AutomationService(db_session)
     updated = automation.apply_task_automations(task.id, "TASK_CREATED")
     assert updated.priority == TaskPriority.HIGH
-    assert updated.column_id == in_progress.id
     assert "deadline-soon" in updated.tags
     assert automation.apply_task_automations("missing", "TASK_CREATED") is None
     TaskService(db_session).move_task(
@@ -142,15 +141,6 @@ def test_event_notification_rule_seed_and_automation_services(
         )
     )
     automation.apply_task_automations(done_task.id, "TASK_MOVED")
-    in_progress_task = TaskService(db_session).create_task(
-        TaskCreate(
-            board_id=board.id,
-            column_id=in_progress.id,
-            title="Already moving",
-            tags=["auto-progress"],
-        )
-    )
-    automation.apply_task_automations(in_progress_task.id, "TASK_CREATED")
 
     payload = get_publisher()
     assert hasattr(payload, "published_events")
@@ -286,8 +276,8 @@ def test_seed_demo_data_from_empty_database(db_session):
     seeded = seed_demo_data(db_session)
     assert seeded["board_created"] is True
     assert seeded["columns_created"] == 3
-    assert seeded["tasks_created"] == 4
-    assert seeded["rules_created"] == 4
+    assert seeded["tasks_created"] == 3
+    assert seeded["rules_created"] == 3
 
 
 def test_task_service_branch_cases(db_session, seeded_board, monkeypatch):

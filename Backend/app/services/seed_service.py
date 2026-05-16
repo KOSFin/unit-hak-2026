@@ -36,13 +36,7 @@ SEED_TASKS = [
         "tags": [],
         "deadline_offset_hours": 12,
     },
-    {
-        "title": "Auto progress sample",
-        "description": "Task with auto-progress tag",
-        "priority": TaskPriority.LOW,
-        "tags": ["auto-progress"],
-        "deadline_offset_hours": None,
-    },
+
 ]
 
 SEED_RULES = [
@@ -56,17 +50,7 @@ SEED_RULES = [
             "notify": "Priority set to HIGH because tag 'urgent' is present",
         },
     },
-    {
-        "name": "Auto progress tag",
-        "enabled": True,
-        "trigger_type": "TASK_ANY",
-        "condition": {"tag": "auto-progress", "not_column": "In Progress"},
-        "action": {
-            "move_to": "In Progress",
-            "position": 1,
-            "notify": "Auto-progress keeps this task in In Progress",
-        },
-    },
+
     {
         "name": "Deadline soon flag",
         "enabled": True,

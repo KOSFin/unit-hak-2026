@@ -185,7 +185,7 @@ export default function TaskModal({
               onChange={(event) => setTagInput(event.target.value)}
               onKeyDown={handleTagKeyDown}
               onBlur={handleTagBlur}
-              placeholder="urgent backend auto-progress"
+              placeholder="urgent backend"
             />
           </div>
         </div>
