@@ -11,6 +11,9 @@
   cursor: grab;
   animation: fade-in var(--transition-base);
   touch-action: none;
+  transition:
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .card:hover {
@@ -18,7 +21,15 @@
 }
 
 .dragging {
-  opacity: 0.75;
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.overlay {
+  cursor: grabbing;
+  box-shadow: 0 24px 40px rgba(20, 20, 18, 0.16);
+  transform: scale(1.02);
+  pointer-events: none;
 }
 
 .header,

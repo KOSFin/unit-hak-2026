@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import Button from '../Ui/Button';
 import Badge from '../Ui/Badge';
@@ -10,16 +10,7 @@ import styles from './TaskModal.module.css';
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-function normalizeTagsInput(value) {
-  const endsWithSpace = /\s$/.test(value);
-  const normalized = value.replace(/[\s,]+/g, ' ').trimStart();
-  if (endsWithSpace && normalized) {
-    return `${normalized} `;
-  }
-  return normalized;
-}
-
-function parseTags(value) {
+function splitTags(value) {
   return value
     .split(/[\s,]+/g)
     .map((tag) => tag.trim())
@@ -31,7 +22,7 @@ function taskToForm(columns, task) {
     title: task?.title ?? '',
     description: task?.description ?? '',
     priority: task?.priority ?? 'MEDIUM',
-    tags: (task?.tags ?? []).join(' '),
+    tags: task?.tags ?? [],
     deadline: task?.deadline ? task.deadline.slice(0, 16) : '',
     columnId: task?.column_id ?? columns[0]?.id ?? '',
   };
@@ -48,16 +39,62 @@ export default function TaskModal({
 }) {
   const [form, setForm] = useState(taskToForm(columns, task));
   const [errors, setErrors] = useState({});
+  const [tagInput, setTagInput] = useState('');
 
   const handleChange = (field) => (event) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
-  const handleTagsChange = (event) => {
-    setForm((current) => ({ ...current, tags: normalizeTagsInput(event.target.value) }));
+  const addTags = (tagsToAdd) => {
+    if (!tagsToAdd.length) {
+      return;
+    }
+    setForm((current) => {
+      const existing = new Set(current.tags);
+      const merged = [...current.tags];
+      tagsToAdd.forEach((tag) => {
+        if (!existing.has(tag)) {
+          existing.add(tag);
+          merged.push(tag);
+        }
+      });
+      return { ...current, tags: merged };
+    });
   };
 
-  const tagPreview = useMemo(() => parseTags(form.tags), [form.tags]);
+  const commitTagInput = () => {
+    const tagsToAdd = splitTags(tagInput);
+    if (tagsToAdd.length) {
+      addTags(tagsToAdd);
+      setTagInput('');
+    }
+  };
+
+  const handleTagKeyDown = (event) => {
+    const shouldCommit = ['Enter', 'Tab', ',', ' '].includes(event.key);
+    if (shouldCommit) {
+      if (tagInput.trim()) {
+        event.preventDefault();
+        commitTagInput();
+      }
+      return;
+    }
+
+    if (event.key === 'Backspace' && !tagInput && form.tags.length > 0) {
+      setForm((current) => ({ ...current, tags: current.tags.slice(0, -1) }));
+    }
+  };
+
+  const handleTagBlur = () => {
+    commitTagInput();
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setForm((current) => ({
+      ...current,
+      tags: current.tags.filter((tag) => tag !== tagToRemove),
+    }));
+  };
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
@@ -71,7 +108,7 @@ export default function TaskModal({
       title: form.title.trim(),
       description: form.description.trim() || null,
       priority: form.priority,
-      tags: parseTags(form.tags),
+      tags: form.tags,
       deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
     };
 
@@ -126,22 +163,32 @@ export default function TaskModal({
           value={form.deadline}
           onChange={handleChange('deadline')}
         />
-        <Input
-          className={styles.full}
-          label="Tags"
-          value={form.tags}
-          onChange={handleTagsChange}
-          placeholder="urgent backend auto-progress"
-        />
-        {tagPreview.length > 0 ? (
-          <div className={`${styles.full} ${styles.tagPreview}`}>
-            {tagPreview.map((tag) => (
-              <Badge key={tag} tone={tag === 'urgent' ? 'danger' : 'accent'}>
-                {tag}
-              </Badge>
+        <div className={`${styles.full} ${styles.tagField}`}>
+          <span className={styles.tagLabel}>Tags</span>
+          <div className={styles.tagControl}>
+            {form.tags.map((tag) => (
+              <span key={tag} className={styles.tagChip}>
+                <Badge tone={tag === 'urgent' ? 'danger' : 'accent'}>{tag}</Badge>
+                <button
+                  type="button"
+                  className={styles.tagRemove}
+                  onClick={() => handleRemoveTag(tag)}
+                  aria-label={`Remove tag ${tag}`}
+                >
+                  x
+                </button>
+              </span>
             ))}
+            <input
+              className={styles.tagInput}
+              value={tagInput}
+              onChange={(event) => setTagInput(event.target.value)}
+              onKeyDown={handleTagKeyDown}
+              onBlur={handleTagBlur}
+              placeholder="urgent backend auto-progress"
+            />
           </div>
-        ) : null}
+        </div>
         <Textarea
           className={styles.full}
           label="Description"
