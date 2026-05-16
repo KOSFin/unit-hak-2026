@@ -38,16 +38,6 @@ export default function Board({
     }),
   );
 
-  const collisionDetection = useCallback((args) => {
-    const collisions = closestCorners(args);
-    const nonActive = collisions.filter((collision) => collision.id !== args.active.id);
-    const candidates = nonActive.length ? nonActive : collisions;
-    const taskCollisions = candidates.filter((collision) =>
-      String(collision.id).startsWith('task:'),
-    );
-    return taskCollisions.length ? taskCollisions : candidates;
-  }, []);
-
   // Sync server state → localTasks only when NOT dragging and not suppressed
   useEffect(() => {
     if (activeId !== null) {
@@ -61,12 +51,13 @@ export default function Board({
     setLocalTasks(tasks);
   }, [tasks, activeId]);
 
+  const [activeTaskSnapshot, setActiveTaskSnapshot] = useState(null);
+
   const activeTask = useMemo(() => {
     if (!activeId) return null;
     const id = String(activeId).replace('task:', '');
-    // Look up in the drag-start snapshot so the overlay never "jumps"
-    return (dragStartTasksRef.current ?? localTasks).find((t) => t.id === id) ?? null;
-  }, [activeId, localTasks]);
+    return activeTaskSnapshot ?? localTasks.find((t) => t.id === id) ?? null;
+  }, [activeId, localTasks, activeTaskSnapshot]);
 
   /**
    * Given the droppable `over` and the active draggable descriptor, compute
@@ -76,134 +67,178 @@ export default function Board({
    * at drag-start), not the live optimistic list.  This prevents accumulated
    * errors when DragOver fires many times per second.
    */
-  const resolveDropTarget = useCallback((over, active, snapshot) => {
-    if (!over) return null;
-
-    const activeTaskId = String(active.id).replace('task:', '');
-    const activeTask = snapshot.find((task) => task.id === activeTaskId);
-    const sourceColumnId = activeTask?.column_id ?? null;
-    const sourceColumnTasks = sourceColumnId
-      ? snapshot.filter((task) => task.column_id === sourceColumnId)
-      : [];
-    const sourceIndex = sourceColumnTasks.findIndex((task) => task.id === activeTaskId);
-
-    const overId = String(over.id);
-
-    if (overId.startsWith('task:')) {
-      const overTaskId = overId.replace('task:', '');
-      const overTask = snapshot.find((t) => t.id === overTaskId);
-      if (!overTask) return null;
-
-      const columnTasks = snapshot.filter((t) => t.column_id === overTask.column_id);
-      let targetIndex = columnTasks.findIndex((t) => t.id === overTaskId);
-
-      // Insert *after* the hovered card when the dragged card's centre is below the hovered card's centre
-      if (over.rect && active.rect?.current?.translated) {
-        const overMidY = over.rect.top + over.rect.height / 2;
-        const activeCenterY =
-          active.rect.current.translated.top + active.rect.current.translated.height / 2;
-        if (activeCenterY > overMidY) {
-          targetIndex += 1;
-        }
-      }
-
-      if (sourceColumnId === overTask.column_id && sourceIndex !== -1 && sourceIndex < targetIndex) {
-        targetIndex -= 1;
-      }
-
-      return { targetColumnId: overTask.column_id, targetIndex };
-    }
-
-    if (overId.startsWith('column:')) {
-      const targetColumnId = overId.replace('column:', '');
-      // Append to the end of the column
-      let targetIndex = snapshot.filter((t) => t.column_id === targetColumnId).length;
-      if (sourceColumnId === targetColumnId && sourceIndex !== -1) {
-        targetIndex = Math.max(0, targetIndex - 1);
-      }
-      return { targetColumnId, targetIndex };
-    }
-
-    return null;
-  }, []);
-
   const handleDragStart = useCallback(({ active }) => {
-    // Take a clean snapshot before any optimistic updates
     dragStartTasksRef.current = localTasks;
+    const id = String(active.id).replace('task:', '');
+    setActiveTaskSnapshot(localTasks.find(t => t.id === id) ?? null);
     setActiveId(active.id);
   }, [localTasks]);
 
   const handleDragOver = useCallback(({ active, over }) => {
     if (!over || active.id === over.id) return;
 
-    const snapshot = dragStartTasksRef.current;
-    if (!snapshot) return;
+    const activeIdStr = String(active.id).replace('task:', '');
+    const overIdStr = String(over.id).replace('task:', '').replace('column:', '');
 
-    const activeTaskId = String(active.id).replace('task:', '');
+    setLocalTasks((prev) => {
+      const activeTask = prev.find((t) => t.id === activeIdStr);
+      if (!activeTask) return prev;
 
-    const dropTarget = resolveDropTarget(over, active, snapshot);
-    if (!dropTarget) return;
+      const isOverColumn = String(over.id).startsWith('column:');
+      
+      let targetColumnId;
+      if (isOverColumn) {
+        targetColumnId = overIdStr;
+      } else {
+        const overTask = prev.find((t) => t.id === overIdStr);
+        if (!overTask) return prev;
+        targetColumnId = overTask.column_id;
+      }
 
-    const { targetColumnId, targetIndex } = dropTarget;
+      if (activeTask.column_id === targetColumnId) {
+        return prev;
+      }
 
-    // Apply optimistic reorder against the snapshot so each DragOver event
-    // produces a clean result instead of accumulating tiny errors
-    const optimistic = reorderTasks(snapshot, columns, activeTaskId, targetColumnId, targetIndex);
-    setLocalTasks(optimistic);
-  }, [columns, resolveDropTarget]);
+      let targetIndex;
+      if (isOverColumn) {
+        targetIndex = prev.filter((t) => t.column_id === targetColumnId).length;
+      } else {
+        const columnTasks = prev.filter((t) => t.column_id === targetColumnId);
+        targetIndex = columnTasks.findIndex((t) => t.id === overIdStr);
+
+        const overRect = over.rect;
+        if (overRect && active.rect?.current?.translated) {
+          const overMidY = overRect.top + overRect.height / 2;
+          const activeCenterY =
+            active.rect.current.translated.top + active.rect.current.translated.height / 2;
+          if (activeCenterY > overMidY) {
+            targetIndex += 1;
+          }
+        }
+      }
+
+      return reorderTasks(prev, columns, activeIdStr, targetColumnId, targetIndex);
+    });
+  }, [columns]);
 
   const handleDragEnd = useCallback(({ active, over }) => {
     const snapshot = dragStartTasksRef.current;
     dragStartTasksRef.current = null;
 
     if (!over || !snapshot) {
+      setActiveTaskSnapshot(null);
       setActiveId(null);
       setLocalTasks(tasks);
       return;
     }
 
-    const activeTaskId = String(active.id).replace('task:', '');
+    const activeIdStr = String(active.id).replace('task:', '');
+    const overIdStr = String(over.id).replace('task:', '').replace('column:', '');
 
-    // Resolve against the SNAPSHOT so the index matches what the server expects
-    const dropTarget = resolveDropTarget(over, active, snapshot);
-    if (!dropTarget) {
+    const activeTaskOriginal = snapshot.find((t) => t.id === activeIdStr);
+    if (!activeTaskOriginal) {
+        setActiveTaskSnapshot(null);
+        setActiveId(null);
+        setLocalTasks(tasks);
+        return;
+    }
+
+    // Work out final position based on localTasks
+    setLocalTasks((currentTasks) => {
+      setActiveTaskSnapshot(null);
+      const activeTaskCurrent = currentTasks.find((t) => t.id === activeIdStr);
+      if (!activeTaskCurrent) {
+        setActiveId(null);
+        return tasks;
+      }
+
+      const isOverColumn = String(over.id).startsWith('column:');
+      let targetColumnId;
+      if (isOverColumn) {
+        targetColumnId = overIdStr;
+      } else {
+        const overTask = currentTasks.find((t) => t.id === overIdStr);
+        if (!overTask) {
+           setActiveId(null);
+           return tasks;
+        }
+        targetColumnId = overTask.column_id;
+      }
+
+      let targetIndex;
+      const columnTasks = currentTasks.filter((t) => t.column_id === targetColumnId);
+      
+      if (isOverColumn) {
+          targetIndex = columnTasks.length;
+          if (activeTaskCurrent.column_id === targetColumnId) {
+             targetIndex = Math.max(0, targetIndex - 1);
+          }
+      } else {
+          targetIndex = columnTasks.findIndex((t) => t.id === overIdStr);
+          const activeIndexInColumn = columnTasks.findIndex((t) => t.id === activeIdStr);
+
+          // Standard DndKit rect comparison
+          if (activeTaskCurrent.column_id !== targetColumnId) {
+             const overRect = over.rect;
+             if (overRect && active.rect?.current?.translated) {
+               const overMidY = overRect.top + overRect.height / 2;
+               const activeCenterY =
+                 active.rect.current.translated.top + active.rect.current.translated.height / 2;
+               if (activeCenterY > overMidY) {
+                 targetIndex += 1;
+               }
+             }
+          } else {
+             // In the same column, active and over indexes are straightforward
+             if (activeIndexInColumn !== -1) {
+                // Determine if we are moving down
+                if (targetIndex > activeIndexInColumn) {
+                    // Dnd-kit handles same column shift
+                     const overRect = over.rect;
+                     if (overRect && active.rect?.current?.translated) {
+                       const overMidY = overRect.top + overRect.height / 2;
+                       const activeCenterY =
+                         active.rect.current.translated.top + active.rect.current.translated.height / 2;
+                       if (activeCenterY > overMidY) {
+                         // already moved down?
+                       } else {
+                          //targetIndex -= 1;
+                       }
+                     }
+                }
+             }
+          }
+      }
+
+      const finalTasks = reorderTasks(currentTasks, columns, activeIdStr, targetColumnId, targetIndex);
+      
+      const noChange =
+        targetColumnId === activeTaskOriginal.column_id &&
+        targetIndex === snapshot.filter(t => t.column_id === targetColumnId).findIndex(t => t.id === activeIdStr);
+
+      if (noChange) {
+        setActiveId(null);
+        return tasks; // rollback to server tasks
+      }
+
+      ignoreSyncRef.current = true;
       setActiveId(null);
-      setLocalTasks(tasks);
-      return;
-    }
+      
+      // Need to find the actual index in the final tasks
+      const finalColumnTasks = finalTasks.filter(t => t.column_id === targetColumnId);
+      const finalIndex = finalColumnTasks.findIndex(t => t.id === activeIdStr);
 
-    const { targetColumnId, targetIndex } = dropTarget;
+      setTimeout(() => {
+         onMoveTask(activeTaskOriginal, targetColumnId, finalIndex);
+      }, 0);
 
-    // Check if the card actually moved
-    const originalTask = snapshot.find((t) => t.id === activeTaskId);
-    const originalColumnTasks = snapshot.filter((t) => t.column_id === targetColumnId);
-    const originalIndex = originalColumnTasks.findIndex((t) => t.id === activeTaskId);
-    const noChange =
-      originalTask &&
-      targetColumnId === originalTask.column_id &&
-      targetIndex === originalIndex;
-
-    if (noChange) {
-      setActiveId(null);
-      setLocalTasks(tasks);
-      return;
-    }
-
-    // Commit optimistic state for the final position
-    const finalTasks = reorderTasks(snapshot, columns, activeTaskId, targetColumnId, targetIndex);
-    ignoreSyncRef.current = true;
-    setLocalTasks(finalTasks);
-    setActiveId(null);
-
-    // activeTask must be fetched from snapshot (task object carries version, etc.)
-    const activeTask = snapshot.find((t) => t.id === activeTaskId);
-    if (activeTask) {
-      onMoveTask(activeTask, targetColumnId, targetIndex);
-    }
-  }, [columns, tasks, resolveDropTarget, onMoveTask]);
+      return finalTasks;
+    });
+  }, [columns, tasks, onMoveTask]);
 
   const handleDragCancel = useCallback(() => {
     dragStartTasksRef.current = null;
+    setActiveTaskSnapshot(null);
     setActiveId(null);
     setLocalTasks(tasks);
   }, [tasks]);
@@ -211,8 +246,8 @@ export default function Board({
   return (
     <DndContext
       sensors={sensors}
-      // Prefer task collisions so we can reliably drop at any index
-      collisionDetection={collisionDetection}
+      // closestCorners works better than closestCenter for mixed column + card droppables
+      collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

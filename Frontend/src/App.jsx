@@ -169,7 +169,7 @@ export default function App() {
   useEffect(() => {
     if (previousConnectionRef.current !== connectionStatus) {
       if (connectionStatus === 'offline') {
-        showToast('Realtime connection lost. Reconnecting...', 'danger');
+        setTimeout(() => showToast('Realtime connection lost. Reconnecting...', 'danger'), 0);
       }
       previousConnectionRef.current = connectionStatus;
     }

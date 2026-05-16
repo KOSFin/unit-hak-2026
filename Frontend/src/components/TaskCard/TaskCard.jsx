@@ -69,7 +69,7 @@ export default function TaskCard({ task, onOpen }) {
       type="button"
       className={`${styles.card} ${isDragging ? styles.dragging : ''}`}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Translate.toString(transform),
         transition,
       }}
       onClick={() => onOpen(task)}

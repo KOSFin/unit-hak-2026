@@ -11,9 +11,7 @@
   cursor: grab;
   animation: fade-in var(--transition-base);
   touch-action: none;
-  transition:
-    box-shadow var(--transition-fast),
-    transform var(--transition-fast);
+  transition: box-shadow var(--transition-fast);
 }
 
 .card:hover {
