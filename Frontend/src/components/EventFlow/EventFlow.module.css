@@ -73,11 +73,60 @@
   background: linear-gradient(180deg, var(--border-strong), rgba(201, 201, 191, 0) 85%);
 }
 
+.actorGroup {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.actorHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 8px 28px;
+  margin-bottom: 4px;
+}
+
+.actor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--surface);
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid rgba(201, 201, 191, 0.3);
+}
+
+.actorName {
+  font-size: 0.87rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.systemLabel {
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 0 8px;
+}
+
 .event {
   position: relative;
   display: flex;
   gap: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   animation: fade-in var(--transition-fast);
 }
 
@@ -116,40 +165,6 @@
   gap: 10px;
   margin-bottom: 6px;
   min-width: 0;
-}
-
-.actor {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  color: var(--surface);
-  font-size: 0.65rem;
-  font-weight: 700;
-}
-
-.actorName {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.systemLabel {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-style: italic;
 }
 
 .eventMeta {

@@ -270,10 +270,28 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
     return () => window.removeEventListener('board-event-flow-update', load);
   }, [boardId]);
 
-  // Flatten all clusters for compact timeline view
-  const allClusters = renderedGroups.flatMap((g, idx) => 
-    g.clusters.map((c, cIdx) => ({ ...c, groupIdx: idx, clusterIdx: cIdx, totalClusters: renderedGroups.length }))
-  );
+  // Flatten all clusters for compact timeline view with grouping by actor
+  const allClusters = renderedGroups.flatMap((g) => g.clusters);
+  
+  // Group consecutive clusters by actor
+  const groupedByActor = [];
+  let currentActorGroup = null;
+  
+  allClusters.forEach((cluster, idx) => {
+    const actorId = cluster.actorId || 'system';
+    
+    if (currentActorGroup?.actorId === actorId && currentActorGroup?.actor?.guest_id === cluster.actor?.guest_id) {
+      currentActorGroup.clusters.push(cluster);
+    } else {
+      currentActorGroup = {
+        actorId,
+        actor: cluster.actor,
+        clusters: [cluster],
+        groupIdx: groupedByActor.length,
+      };
+      groupedByActor.push(currentActorGroup);
+    }
+  });
 
   return (
     <div className={styles.panel}>
@@ -286,44 +304,51 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
            <p className={styles.empty}>No activity yet.</p>
         ) : (
           <div className={styles.timeline}>
-            {allClusters.map((cluster, idx) => (
-              <div key={`${cluster.groupIdx}-${cluster.clusterIdx}`} className={styles.event}>
-                <div className={styles.eventDot}></div>
-                <div className={styles.eventLine} data-is-last={idx === allClusters.length - 1}></div>
-                <div className={styles.eventBody}>
-                  <div className={styles.eventHeader}>
-                    {cluster.actor ? (
-                      <div className={styles.actor}>
-                        <div
-                          className={styles.avatar}
-                          style={{
-                            backgroundColor: cluster.actor.color,
-                            backgroundImage: cluster.actor.avatar_url
-                              ? `url(${cluster.actor.avatar_url})`
-                              : 'none',
-                            backgroundSize: 'cover',
-                          }}
-                        >
-                          {!cluster.actor.avatar_url &&
-                            cluster.actor.display_name.charAt(0).toUpperCase()}
-                        </div>
-                        <span className={styles.actorName}>{cluster.actor.display_name}</span>
+            {groupedByActor.map((actorGroup) => (
+              <div key={`actor-${actorGroup.groupIdx}`} className={styles.actorGroup}>
+                <div className={styles.actorHeader}>
+                  {actorGroup.actor ? (
+                    <div className={styles.actor}>
+                      <div
+                        className={styles.avatar}
+                        style={{
+                          backgroundColor: actorGroup.actor.color,
+                          backgroundImage: actorGroup.actor.avatar_url
+                            ? `url(${actorGroup.actor.avatar_url})`
+                            : 'none',
+                          backgroundSize: 'cover',
+                        }}
+                      >
+                        {!actorGroup.actor.avatar_url &&
+                          actorGroup.actor.display_name.charAt(0).toUpperCase()}
                       </div>
-                    ) : (
-                      <span className={styles.systemLabel}>System</span>
-                    )}
-                    <div className={styles.eventMeta}>
-                      <span className={styles.time}>{formatEventTime(cluster.events[0].created_at)}</span>
-                      {cluster.events.length > 1 && (
-                        <span className={styles.count}>{cluster.events.length}</span>
-                      )}
+                      <span className={styles.actorName}>{actorGroup.actor.display_name}</span>
+                    </div>
+                  ) : (
+                    <span className={styles.systemLabel}>System</span>
+                  )}
+                </div>
+                
+                {actorGroup.clusters.map((cluster, clusterIdx) => (
+                  <div key={`${actorGroup.groupIdx}-${clusterIdx}`} className={styles.event}>
+                    <div className={styles.eventDot}></div>
+                    <div className={styles.eventLine}></div>
+                    <div className={styles.eventBody}>
+                      <div className={styles.eventHeader}>
+                        <div className={styles.eventMeta}>
+                          <span className={styles.time}>{formatEventTime(cluster.events[0].created_at)}</span>
+                          {cluster.events.length > 1 && (
+                            <span className={styles.count}>{cluster.events.length}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className={styles.eventText}>
+                        <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events)}</div>
+                        <p className={styles.eventMessage}>{summarizeEventMessages(cluster.events)}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className={styles.eventText}>
-                    <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events)}</div>
-                    <p className={styles.eventMessage}>{summarizeEventMessages(cluster.events)}</p>
-                  </div>
-                </div>
+                ))}
               </div>
             ))}
           </div>
