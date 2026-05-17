@@ -1,18 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import Badge from '../Ui/Badge';
 import { getBoardEvents } from '../../api/boardsApi';
 import styles from './EventFlow.module.css';
-
-const SOURCE_COLORS = {
-  USER: 'accent',
-  API: 'neutral',
-  DB: 'warning',
-  QUEUE: 'danger',
-  WORKER: 'danger',
-  RULE: 'warning',
-  WS: 'neutral',
-  SYSTEM: 'neutral',
-};
 const COMPACT_GROUP_WINDOW_MS = 90 * 1000;
 
 function describeEvent(event) {
@@ -132,20 +120,6 @@ function getEventActorId(event) {
     event.payload?.incoming_task?.guest_id ||
     null
   );
-}
-
-function getOperationSummary(events) {
-  const titles = [...new Set(events.map((event) => describeEvent(event).title))];
-  if (titles.length === 0) {
-    return 'Operation';
-  }
-  if (titles.length === 1) {
-    return titles[0];
-  }
-  if (titles.length === 2) {
-    return `${titles[0]} + ${titles[1]}`;
-  }
-  return `${titles[0]} and ${titles.length - 1} more`;
 }
 
 function formatEventTime(value) {
@@ -296,89 +270,63 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
     return () => window.removeEventListener('board-event-flow-update', load);
   }, [boardId]);
 
+  // Flatten all clusters for compact timeline view
+  const allClusters = renderedGroups.flatMap((g, idx) => 
+    g.clusters.map((c, cIdx) => ({ ...c, groupIdx: idx, clusterIdx: cIdx, totalClusters: renderedGroups.length }))
+  );
+
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Activity Flow</h2>
-        <p className={styles.subtitle}>Live board activity, grouped by operation.</p>
+        <h2 className={styles.title}>Activity</h2>
+        <p className={styles.subtitle}>{allClusters.length} event{allClusters.length === 1 ? '' : 's'}</p>
       </div>
       <div className={styles.content} ref={containerRef}>
-        {renderedGroups.length === 0 ? (
+        {allClusters.length === 0 ? (
            <p className={styles.empty}>No activity yet.</p>
         ) : (
-          renderedGroups.map((group, idx) => {
-            return (
-              <div key={group.key} className={styles.group}>
-                <div className={styles.groupHeader}>
-                  <div>
-                    <span className={styles.groupLabel}>Operation</span>
-                    <strong>{getOperationSummary(group.events)}</strong>
+          <div className={styles.timeline}>
+            {allClusters.map((cluster, idx) => (
+              <div key={`${cluster.groupIdx}-${cluster.clusterIdx}`} className={styles.event}>
+                <div className={styles.eventDot}></div>
+                <div className={styles.eventLine} data-is-last={idx === allClusters.length - 1}></div>
+                <div className={styles.eventBody}>
+                  <div className={styles.eventHeader}>
+                    {cluster.actor ? (
+                      <div className={styles.actor}>
+                        <div
+                          className={styles.avatar}
+                          style={{
+                            backgroundColor: cluster.actor.color,
+                            backgroundImage: cluster.actor.avatar_url
+                              ? `url(${cluster.actor.avatar_url})`
+                              : 'none',
+                            backgroundSize: 'cover',
+                          }}
+                        >
+                          {!cluster.actor.avatar_url &&
+                            cluster.actor.display_name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className={styles.actorName}>{cluster.actor.display_name}</span>
+                      </div>
+                    ) : (
+                      <span className={styles.systemLabel}>System</span>
+                    )}
+                    <div className={styles.eventMeta}>
+                      <span className={styles.time}>{formatEventTime(cluster.events[0].created_at)}</span>
+                      {cluster.events.length > 1 && (
+                        <span className={styles.count}>{cluster.events.length}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className={styles.groupMeta}>
-                    <span>{group.events.length} event{group.events.length === 1 ? '' : 's'}</span>
-                    {group.correlationId ? <code>{group.correlationId.slice(0, 8)}</code> : null}
+                  <div className={styles.eventText}>
+                    <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events)}</div>
+                    <p className={styles.eventMessage}>{summarizeEventMessages(cluster.events)}</p>
                   </div>
                 </div>
-
-                {group.clusters.map((cluster, clusterIndex) => (
-                  <div key={`${group.key}-${clusterIndex}`} className={styles.cluster}>
-                    <div className={styles.clusterIntro}>
-                      {cluster.actor ? (
-                        <div className={styles.userStamp}>
-                          <div
-                            className={styles.miniAvatar}
-                            style={{
-                              backgroundColor: cluster.actor.color,
-                              backgroundImage: cluster.actor.avatar_url
-                                ? `url(${cluster.actor.avatar_url})`
-                                : 'none',
-                              backgroundSize: 'cover',
-                            }}
-                          >
-                            {!cluster.actor.avatar_url &&
-                              cluster.actor.display_name.charAt(0).toUpperCase()}
-                          </div>
-                          <span>{cluster.actor.display_name}</span>
-                        </div>
-                      ) : (
-                        <div className={styles.userStamp}>
-                          <span>System batch</span>
-                        </div>
-                      )}
-                      <Badge tone={SOURCE_COLORS[cluster.source] || 'neutral'}>{cluster.source}</Badge>
-                    </div>
-
-                    <div className={styles.eventItem}>
-                      <div className={styles.timeline}>
-                        <div className={styles.dot}></div>
-                        {clusterIndex < group.clusters.length - 1 ||
-                        idx < renderedGroups.length - 1 ? (
-                          <div className={styles.line}></div>
-                        ) : null}
-                      </div>
-                      <div className={styles.eventContent}>
-                        <div className={styles.eventMeta}>
-                          <span className={styles.time}>{formatEventTime(cluster.events[0].created_at)}</span>
-                          {cluster.events.length > 1 ? (
-                            <span className={styles.timeRange}>
-                              {formatEventTime(cluster.events[cluster.events.length - 1].created_at)}
-                            </span>
-                          ) : null}
-                          <span className={styles.count}>
-                            {cluster.events.length} action{cluster.events.length === 1 ? '' : 's'}
-                          </span>
-                        </div>
-                        <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events)}</div>
-                        <p className={styles.eventMessage}>
-                          {summarizeEventMessages(cluster.events)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
     </div>
