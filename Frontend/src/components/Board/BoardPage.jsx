@@ -117,6 +117,17 @@ export default function BoardPage() {
   const socketRef = useRef(null);
   const crossTabRef = useRef(null);
   const previousRealtimeStatusRef = useRef('idle');
+  const identityRef = useRef(identity);
+  const languageRef = useRef(language);
+  const skipCrossTabBroadcastRef = useRef({
+    tasks: false,
+    board: false,
+    notifications: false,
+    rules: false,
+    incomingTasks: false,
+  });
+  const boardId = board?.id ?? null;
+  const boardPublicId = board?.public_id ?? null;
   const activeTaskView = taskView.boardId === publicBoardId
     ? taskView
     : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW };
@@ -152,6 +163,11 @@ export default function BoardPage() {
     setColumns(boardData.columns || []);
     return boardData;
   }, []);
+
+  useEffect(() => {
+    identityRef.current = identity;
+    languageRef.current = language;
+  }, [identity, language]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,7 +225,7 @@ export default function BoardPage() {
   }, [publicBoardId, language]);
 
   useEffect(() => {
-    if (!board) {
+    if (!boardId) {
       return undefined;
     }
 
@@ -219,15 +235,16 @@ export default function BoardPage() {
     };
 
     const sendPresenceJoin = (wsClient) => {
+      const currentIdentity = identityRef.current;
       wsClient.send(
         JSON.stringify({
           type: 'presence.join',
-          board_id: board.id,
+          board_id: boardId,
           user: {
-            guest_id: identity.id,
-            display_name: identity.displayName,
-            color: identity.color,
-            avatar_url: identity.avatarUrl,
+            guest_id: currentIdentity.id,
+            display_name: currentIdentity.displayName,
+            color: currentIdentity.color,
+            avatar_url: currentIdentity.avatarUrl,
           },
         }),
       );
@@ -247,8 +264,8 @@ export default function BoardPage() {
         if (previousStatus === 'connected') {
           setToast({
             tone: 'danger',
-            title: t('realtimeConnectionIssue', language),
-            message: t('realtimeDisconnectedMessage', language),
+            title: t('realtimeConnectionIssue', languageRef.current),
+            message: t('realtimeDisconnectedMessage', languageRef.current),
           });
         }
       },
@@ -256,8 +273,8 @@ export default function BoardPage() {
         updateRealtimeState('error');
         setToast({
           tone: 'danger',
-          title: t('realtimeConnectionIssue', language),
-          message: t('realtimeConnectionIssueMessage', language),
+          title: t('realtimeConnectionIssue', languageRef.current),
+          message: t('realtimeConnectionIssueMessage', languageRef.current),
         });
       },
       onMessage: (message) => {
@@ -265,7 +282,7 @@ export default function BoardPage() {
           const snapshot = message.payload || {};
           setOnlineUsers(snapshot.users || []);
           const { editingUsersMap: nextEditing, draggingUsersMap: nextDragging } =
-            buildPresenceMaps(snapshot, identity.id);
+            buildPresenceMaps(snapshot, identityRef.current.id);
           setEditingUsersMap(nextEditing);
           setDraggingUsersMap(nextDragging);
           return;
@@ -275,8 +292,8 @@ export default function BoardPage() {
           updateRealtimeState('error');
           setToast({
             tone: 'danger',
-            title: t('realtimeConnectionIssue', language),
-            message: t('realtimeConnectionIssueMessage', language),
+            title: t('realtimeConnectionIssue', languageRef.current),
+            message: t('realtimeConnectionIssueMessage', languageRef.current),
           });
           return;
         }
@@ -287,7 +304,7 @@ export default function BoardPage() {
           message.type === 'task.moved' ||
           message.type === 'task.deleted'
         ) {
-          refreshTasks(board.id);
+          refreshTasks(boardId);
           window.dispatchEvent(new Event('board-event-flow-update'));
           return;
         }
@@ -297,7 +314,7 @@ export default function BoardPage() {
           message.type === 'column.updated' ||
           message.type === 'column.deleted'
         ) {
-          refreshBoardShell(board.public_id).catch(() => null);
+          refreshBoardShell(boardPublicId).catch(() => null);
           return;
         }
 
@@ -306,18 +323,18 @@ export default function BoardPage() {
           message.type === 'automation-rule.updated' ||
           message.type === 'automation-rule.deleted'
         ) {
-          refreshRules(board.id);
+          refreshRules(boardId);
           return;
         }
 
         if (message.type === 'incoming-task.processed') {
-          Promise.all([refreshIncomingTasks(board.id), refreshTasks(board.id), refreshNotifications(board.id)])
+          Promise.all([refreshIncomingTasks(boardId), refreshTasks(boardId), refreshNotifications(boardId)])
             .catch(() => null);
           return;
         }
 
         if (message.type === 'notification.created') {
-          refreshNotifications(board.id);
+          refreshNotifications(boardId);
           window.dispatchEvent(new Event('board-event-flow-update'));
         }
       },
@@ -335,9 +352,8 @@ export default function BoardPage() {
       setDraggingUsersMap({});
     };
   }, [
-    board,
-    identity,
-    language,
+    boardId,
+    boardPublicId,
     refreshBoardShell,
     refreshIncomingTasks,
     refreshNotifications,
@@ -356,6 +372,7 @@ export default function BoardPage() {
     // Listen for task updates from other tabs
     const unsubscribeTasks = crossTab.on('tasks-updated', (payload) => {
       if (payload && Array.isArray(payload)) {
+        skipCrossTabBroadcastRef.current.tasks = true;
         setTasks(payload);
       }
     });
@@ -363,6 +380,7 @@ export default function BoardPage() {
     // Listen for board state updates from other tabs
     const unsubscribeBoard = crossTab.on('board-updated', (payload) => {
       if (payload) {
+        skipCrossTabBroadcastRef.current.board = true;
         setBoard(payload);
         setColumns(payload.columns || []);
       }
@@ -371,6 +389,7 @@ export default function BoardPage() {
     // Listen for notifications from other tabs
     const unsubscribeNotifications = crossTab.on('notifications-updated', (payload) => {
       if (payload && Array.isArray(payload)) {
+        skipCrossTabBroadcastRef.current.notifications = true;
         setNotifications(payload);
       }
     });
@@ -378,6 +397,7 @@ export default function BoardPage() {
     // Listen for rules updates from other tabs
     const unsubscribeRules = crossTab.on('rules-updated', (payload) => {
       if (payload && Array.isArray(payload)) {
+        skipCrossTabBroadcastRef.current.rules = true;
         setRules(payload);
       }
     });
@@ -385,6 +405,7 @@ export default function BoardPage() {
     // Listen for incoming tasks updates from other tabs
     const unsubscribeIncoming = crossTab.on('incoming-tasks-updated', (payload) => {
       if (payload && Array.isArray(payload)) {
+        skipCrossTabBroadcastRef.current.incomingTasks = true;
         setIncomingTasks(payload);
       }
     });
@@ -405,11 +426,19 @@ export default function BoardPage() {
     if (!crossTabRef.current) {
       return;
     }
+    if (skipCrossTabBroadcastRef.current.tasks) {
+      skipCrossTabBroadcastRef.current.tasks = false;
+      return;
+    }
     crossTabRef.current.send('tasks-updated', tasks);
   }, [tasks]);
 
   useEffect(() => {
     if (!crossTabRef.current) {
+      return;
+    }
+    if (skipCrossTabBroadcastRef.current.board) {
+      skipCrossTabBroadcastRef.current.board = false;
       return;
     }
     crossTabRef.current.send('board-updated', board);
@@ -419,6 +448,10 @@ export default function BoardPage() {
     if (!crossTabRef.current) {
       return;
     }
+    if (skipCrossTabBroadcastRef.current.notifications) {
+      skipCrossTabBroadcastRef.current.notifications = false;
+      return;
+    }
     crossTabRef.current.send('notifications-updated', notifications);
   }, [notifications]);
 
@@ -426,11 +459,19 @@ export default function BoardPage() {
     if (!crossTabRef.current) {
       return;
     }
+    if (skipCrossTabBroadcastRef.current.rules) {
+      skipCrossTabBroadcastRef.current.rules = false;
+      return;
+    }
     crossTabRef.current.send('rules-updated', rules);
   }, [rules]);
 
   useEffect(() => {
     if (!crossTabRef.current) {
+      return;
+    }
+    if (skipCrossTabBroadcastRef.current.incomingTasks) {
+      skipCrossTabBroadcastRef.current.incomingTasks = false;
       return;
     }
     crossTabRef.current.send('incoming-tasks-updated', incomingTasks);
