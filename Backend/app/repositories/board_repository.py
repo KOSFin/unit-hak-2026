@@ -62,6 +62,18 @@ class BoardRepository:
         self.session.refresh(board)
         return board
 
+    def update(self, board_id: str, name: str | None = None, image_path: str | None = None) -> Board | None:
+        board = self.get_by_id(board_id)
+        if not board:
+            return None
+        if name is not None:
+            board.name = name
+        if image_path is not None:
+            board.image_path = image_path
+        self.session.commit()
+        self.session.refresh(board)
+        return board
+
     def delete(self, board_id: str) -> bool:
         board = self.get_by_id(board_id)
         if not board:

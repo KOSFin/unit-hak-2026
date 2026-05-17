@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
-from app.schemas.board import BoardCreate, BoardCreatedResponse, BoardDetail
+from app.schemas.board import BoardCreate, BoardCreatedResponse, BoardDetail, BoardUpdate
 from app.schemas.event import ActivityEventRead, ActivityGroupRead
 from app.schemas.column import ColumnRead
 from app.services.board_service import BoardService
@@ -59,6 +59,18 @@ def get_default_board(session: SessionDep) -> BoardDetail:
 def get_board(public_board_id: str, session: SessionDep) -> BoardDetail:
     service = BoardService(session)
     board = service.get_board_by_public_id(public_board_id)
+    if not board:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
+    return serialize_board_detail(service, board)
+
+
+@router.patch("/{public_board_id}", response_model=BoardDetail)
+def update_board(public_board_id: str, payload: BoardUpdate, session: SessionDep) -> BoardDetail:
+    service = BoardService(session)
+    try:
+        board = service.update_board(public_board_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     if not board:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
     return serialize_board_detail(service, board)

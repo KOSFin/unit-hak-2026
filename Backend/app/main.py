@@ -37,6 +37,7 @@ async def lifespan(_app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     uploads_dir = settings.uploads_filesystem_path()
+    uploads_url_path = settings.uploads_url_path()
     uploads_dir.mkdir(parents=True, exist_ok=True)
     setup_logging(settings.log_level)
 
@@ -54,11 +55,13 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
-    app.mount(
-        f"/{settings.uploads_url_path()}",
-        StaticFiles(directory=str(uploads_dir)),
-        name="uploads",
+    uploads_mount_path = f"/{uploads_url_path}"
+    app.mount(uploads_mount_path, StaticFiles(directory=str(uploads_dir)), name="uploads")
+    app_prefixed_mount_path = (
+        uploads_mount_path if uploads_mount_path.startswith("/app/") else f"/app{uploads_mount_path}"
     )
+    if app_prefixed_mount_path != uploads_mount_path:
+        app.mount(app_prefixed_mount_path, StaticFiles(directory=str(uploads_dir)), name="uploads-app")
 
     return app
 

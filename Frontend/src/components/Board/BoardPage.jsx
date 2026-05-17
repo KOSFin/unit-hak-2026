@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { getBoard } from '../../api/boardsApi';
+import { getBoard, updateBoard } from '../../api/boardsApi';
 import { createColumn, deleteColumn, updateColumn } from '../../api/columnsApi';
 import { createIncomingTask, getIncomingTasks } from '../../api/incomingTasksApi';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../api/notificationsApi';
 import { createRule, deleteRule, getRules, updateRule } from '../../api/rulesApi';
 import { createTask, deleteTask, getTasks, moveTask, updateTask } from '../../api/tasksApi';
+import { uploadImage } from '../../api/uploadsApi';
 import { createRealtimeSocket } from '../../realtime/socket';
 import { getGuestIdentity } from '../../utils/guest';
 import AdminPanel from '../AdminPanel/AdminPanel';
@@ -527,6 +528,35 @@ export default function BoardPage() {
     [board],
   );
 
+  const handleBoardImageUpdate = useCallback(
+    async (file, input) => {
+      if (!board || !file) {
+        if (input) {
+          input.value = '';
+        }
+        return;
+      }
+
+      setAdminPending(true);
+      try {
+        const uploaded = await uploadImage(file);
+        const updatedBoard = await updateBoard(board.public_id, {
+          image_path: uploaded.path,
+        });
+        setBoard(updatedBoard);
+        setColumns(updatedBoard.columns || []);
+      } catch (caughtError) {
+        alert(caughtError.response?.data?.detail || 'Failed to update board image');
+      } finally {
+        if (input) {
+          input.value = '';
+        }
+        setAdminPending(false);
+      }
+    },
+    [board],
+  );
+
   if (loading) {
     return (
       <div className={styles.statePage}>
@@ -578,6 +608,7 @@ export default function BoardPage() {
       notifications={notifications}
       notificationsOpen={notificationsOpen}
       pending={taskPending || adminPending}
+      onUpdateBoardImage={handleBoardImageUpdate}
       onToggleNotifications={() => setNotificationsOpen((current) => !current)}
       onCloseNotifications={() => setNotificationsOpen(false)}
       mainClassName={styles.layoutMain}
@@ -600,7 +631,9 @@ export default function BoardPage() {
         setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
       }}
     >
-      <div className={styles.boardLayout}>
+      <div
+        className={`${styles.boardLayout} ${eventFlowOpen ? styles.boardLayoutWithAside : ''}`.trim()}
+      >
         <div className={styles.boardShell}>
           <Board
             columns={columns}

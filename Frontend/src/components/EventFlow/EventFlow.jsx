@@ -122,6 +122,59 @@ function describeEvent(event) {
   };
 }
 
+function getEventActorId(event) {
+  return (
+    event.payload?.task?.guest_id ||
+    event.payload?.guest_id ||
+    event.payload?.notification?.guest_id ||
+    event.payload?.incoming_task?.guest_id ||
+    null
+  );
+}
+
+function getOperationSummary(events) {
+  const titles = [...new Set(events.map((event) => describeEvent(event).title))];
+  if (titles.length === 0) {
+    return 'Operation';
+  }
+  if (titles.length === 1) {
+    return titles[0];
+  }
+  if (titles.length === 2) {
+    return `${titles[0]} + ${titles[1]}`;
+  }
+  return `${titles[0]} and ${titles.length - 1} more`;
+}
+
+function buildEventClusters(events, onlineUsers) {
+  const usersMap = new Map(onlineUsers.map((user) => [user.guest_id, user]));
+
+  return events.reduce((clusters, event) => {
+    const actorId = getEventActorId(event);
+    const source = event.source || 'SYSTEM';
+    const previousCluster = clusters[clusters.length - 1];
+
+    if (
+      previousCluster &&
+      previousCluster.actorId &&
+      actorId &&
+      previousCluster.actorId === actorId &&
+      previousCluster.source === source
+    ) {
+      previousCluster.events.push(event);
+      return clusters;
+    }
+
+    clusters.push({
+      actorId,
+      source,
+      actor: actorId ? usersMap.get(actorId) || null : null,
+      events: [event],
+    });
+    return clusters;
+  }, []);
+}
+
 export default function EventFlow({ boardId, onlineUsers = [] }) {
   const [groups, setGroups] = useState([]);
   const containerRef = useRef(null);
@@ -151,60 +204,81 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
         {groups.length === 0 ? (
            <p className={styles.empty}>No activity yet.</p>
         ) : (
-          groups.map((group, idx) => (
-            <div key={group.correlation_id || `group-${idx}`} className={styles.group}>
-              {group.correlation_id ? (
+          groups.map((group, idx) => {
+            const clusters = buildEventClusters(group.events, onlineUsers);
+
+            return (
+              <div key={group.correlation_id || `group-${idx}`} className={styles.group}>
                 <div className={styles.groupHeader}>
-                  <span>Operation</span>
-                  <code>{group.correlation_id.slice(0, 8)}</code>
+                  <div>
+                    <span className={styles.groupLabel}>Operation</span>
+                    <strong>{getOperationSummary(group.events)}</strong>
+                  </div>
+                  {group.correlation_id ? <code>{group.correlation_id.slice(0, 8)}</code> : null}
                 </div>
-              ) : null}
-              {group.events.map((event, eIdx) => {
-                 const details = describeEvent(event);
-                 const guestId = details.guestId || event.payload?.guest_id;
-                 const user = onlineUsers.find(u => u.guest_id === guestId);
-                 
-                 return (
-                   <div key={event.id} className={styles.eventItem}>
-                     <div className={styles.timeline}>
-                        <div className={styles.dot}></div>
-                        {(eIdx < group.events.length - 1 || idx < groups.length - 1) && (
-                           <div className={styles.line}></div>
-                        )}
-                     </div>
-                     <div className={styles.eventContent}>
-                       <div className={styles.eventMeta}>
-                          <Badge tone={SOURCE_COLORS[event.source || 'SYSTEM'] || 'neutral'}>
-                            {event.source || 'SYSTEM'}
-                          </Badge>
-                          <span className={styles.time}>
-                             {new Date(event.created_at).toLocaleTimeString([], {
-                               hour: '2-digit',
-                               minute: '2-digit',
-                               second: '2-digit',
-                             })}
-                          </span>
-                       </div>
-                       <div className={styles.eventTitle}>{details.title}</div>
-                       <p className={styles.eventMessage}>{details.message}</p>
-                       
-                       {user && (
-                          <div className={styles.userStamp}>
-                             <div 
-                                className={styles.miniAvatar}
-                                style={{ backgroundColor: user.color, backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none', backgroundSize: 'cover' }}
-                             >
-                               {!user.avatar_url && user.display_name.charAt(0).toUpperCase()}
-                             </div>
-                             <span>{user.display_name}</span>
+
+                {clusters.map((cluster, clusterIndex) => (
+                  <div key={`${group.correlation_id || idx}-${clusterIndex}`} className={styles.cluster}>
+                    <div className={styles.clusterIntro}>
+                      {cluster.actor ? (
+                        <div className={styles.userStamp}>
+                          <div
+                            className={styles.miniAvatar}
+                            style={{
+                              backgroundColor: cluster.actor.color,
+                              backgroundImage: cluster.actor.avatar_url
+                                ? `url(${cluster.actor.avatar_url})`
+                                : 'none',
+                              backgroundSize: 'cover',
+                            }}
+                          >
+                            {!cluster.actor.avatar_url &&
+                              cluster.actor.display_name.charAt(0).toUpperCase()}
                           </div>
-                       )}
-                     </div>
-                   </div>
-                 );
-              })}
-            </div>
-          ))
+                          <span>{cluster.actor.display_name}</span>
+                        </div>
+                      ) : (
+                        <div className={styles.userStamp}>
+                          <span>System batch</span>
+                        </div>
+                      )}
+                      <Badge tone={SOURCE_COLORS[cluster.source] || 'neutral'}>{cluster.source}</Badge>
+                    </div>
+
+                    {cluster.events.map((event, eventIndex) => {
+                      const details = describeEvent(event);
+                      const shouldRenderLine =
+                        eventIndex < cluster.events.length - 1 ||
+                        clusterIndex < clusters.length - 1 ||
+                        idx < groups.length - 1;
+
+                      return (
+                        <div key={event.id} className={styles.eventItem}>
+                          <div className={styles.timeline}>
+                            <div className={styles.dot}></div>
+                            {shouldRenderLine ? <div className={styles.line}></div> : null}
+                          </div>
+                          <div className={styles.eventContent}>
+                            <div className={styles.eventMeta}>
+                              <span className={styles.time}>
+                                {new Date(event.created_at).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <div className={styles.eventTitle}>{details.title}</div>
+                            <p className={styles.eventMessage}>{details.message}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

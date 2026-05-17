@@ -58,7 +58,7 @@ export default function LandingPage() {
       let imagePath = null;
       if (imageFile) {
         const uploadRes = await uploadImage(imageFile);
-        imagePath = uploadRes.url;
+        imagePath = uploadRes.path;
       }
 
       const board = await createBoard({

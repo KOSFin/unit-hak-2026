@@ -8,7 +8,7 @@ from app.models.column import Column
 from app.core.config import get_settings
 from app.repositories.board_repository import BoardRepository
 from app.repositories.column_repository import ColumnRepository
-from app.schemas.board import BoardCreate
+from app.schemas.board import BoardCreate, BoardUpdate
 
 DEFAULT_COLUMNS = [
     {"title": "To Do", "position": 1, "is_default": True},
@@ -50,6 +50,19 @@ class BoardService:
             self.column_repo.create(board.id, column["title"], column["position"], column["is_default"])
         self.board_repo.update_last_activity(board.id, datetime.now(UTC))
         return board
+
+    def update_board(self, public_id: str, payload: BoardUpdate) -> Board | None:
+        board = self.get_board_by_public_id(public_id)
+        if not board:
+            return None
+        normalized_name = payload.name.strip() if payload.name is not None else None
+        if normalized_name == "":
+            raise ValueError("Board name cannot be empty.")
+        return self.board_repo.update(
+            board.id,
+            name=normalized_name,
+            image_path=payload.image_path,
+        )
 
     def touch_board(self, board_id: str) -> Board | None:
         return self.board_repo.update_last_activity(board_id, datetime.now(UTC))

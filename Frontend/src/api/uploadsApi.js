@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, resolveAppUrl } from './client';
 
 export async function uploadImage(file) {
   const formData = new FormData();
@@ -8,5 +8,9 @@ export async function uploadImage(file) {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
-  return data;
+  return {
+    ...data,
+    url: resolveAppUrl(data.url),
+    path: data.path ?? data.url,
+  };
 }

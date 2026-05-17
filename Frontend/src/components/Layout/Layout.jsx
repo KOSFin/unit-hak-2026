@@ -35,6 +35,7 @@ export default function Layout({
   notifications,
   notificationsOpen,
   pending,
+  onUpdateBoardImage,
   onToggleNotifications,
   onCloseNotifications,
   onMarkNotificationRead,
@@ -44,6 +45,7 @@ export default function Layout({
   const unreadCount = notifications.filter((notification) => !notification.read).length;
   const menuRef = useRef(null);
   const onlineRef = useRef(null);
+  const boardImageInputRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [onlineOpen, setOnlineOpen] = useState(false);
@@ -86,11 +88,25 @@ export default function Layout({
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.identity}>
-          {board?.image_path ? (
-            <img src={board.image_path} alt="Board Logo" className={styles.logoImg} />
-          ) : (
-            <div className={styles.logo}>{getInitial(board?.name || 'FlowBoard')}</div>
-          )}
+          <button
+            type="button"
+            className={styles.boardLogoButton}
+            onClick={() => boardImageInputRef.current?.click()}
+            aria-label="Change board image"
+          >
+            {board?.image_path ? (
+              <img src={board.image_path} alt="Board Logo" className={styles.logoImg} />
+            ) : (
+              <div className={styles.logo}>{getInitial(board?.name || 'FlowBoard')}</div>
+            )}
+          </button>
+          <input
+            ref={boardImageInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(event) => onUpdateBoardImage?.(event.target.files?.[0] ?? null, event.currentTarget)}
+          />
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>{board?.name ?? 'FlowBoard'}</h1>
             <p className={styles.eyebrow}>
@@ -103,6 +119,13 @@ export default function Layout({
         </div>
 
         <div className={styles.actions}>
+          <button type="button" className={styles.boardMetaButton} onClick={() => setShareOpen(true)}>
+            <span className={styles.boardMetaText}>
+              <span className={styles.boardMetaLabel}>Board link</span>
+              <span className={styles.boardMetaValue}>Share workspace</span>
+            </span>
+          </button>
+
           {showOnlineControl && (
              <div className={styles.onlineWrap} ref={onlineRef}>
                <button
@@ -166,10 +189,6 @@ export default function Layout({
              </div>
           )}
           
-          <Button variant="ghost" size="sm" onClick={() => setShareOpen(true)} className={styles.iconBtn}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
-          </Button>
-
           <Button variant="ghost" size="sm" onClick={onToggleEventFlow} className={styles.iconBtn}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
           </Button>

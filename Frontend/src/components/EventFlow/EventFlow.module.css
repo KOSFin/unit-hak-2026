@@ -1,9 +1,9 @@
 .panel {
-  width: min(380px, 32vw);
-  min-width: 320px;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   border: 1px solid rgba(201, 201, 191, 0.8);
-  border-radius: 28px;
+  border-radius: 30px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 245, 240, 0.96) 100%);
   backdrop-filter: blur(12px);
@@ -63,29 +63,51 @@
 .group {
   position: relative;
   margin-bottom: 18px;
-  padding: 14px 14px 0;
+  padding: 14px 14px 4px;
   border: 1px solid rgba(223, 223, 215, 0.75);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.84);
 }
 
 .groupHeader {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--surface-muted);
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(244, 244, 238, 0.95), rgba(255, 255, 255, 0.9));
   color: var(--text-secondary);
   font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .groupHeader code {
   color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.groupLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cluster {
+  margin-bottom: 12px;
+  padding: 10px 10px 0;
+  border-radius: 18px;
+  background: rgba(248, 248, 244, 0.72);
+}
+
+.clusterIntro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .eventItem {
@@ -149,7 +171,6 @@
 }
 
 .userStamp {
-  margin-top: 10px;
   display: inline-flex;
   align-items: center;
   gap: 8px;

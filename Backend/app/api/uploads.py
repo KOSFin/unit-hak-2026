@@ -46,4 +46,5 @@ async def upload_image(file: UploadFile = File(...)):
 
     _compress_and_save_image(file_path)
 
-    return {"url": f"/{settings.uploads_url_path()}/{filename}"}
+    uploads_path = settings.uploads_url_path()
+    return {"url": f"/{uploads_path}/{filename}", "path": f"/{uploads_path}/{filename}"}

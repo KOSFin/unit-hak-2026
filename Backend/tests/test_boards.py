@@ -42,6 +42,20 @@ def test_get_board_by_public_id(client: TestClient, db_session: Session) -> None
     assert len(data["columns"]) == 3
 
 
+def test_update_board_image_path(client: TestClient, db_session: Session) -> None:
+    created = client.post("/api/boards", json={"name": "Brand Board", "retention_days": 3})
+    assert created.status_code == 201
+    public_id = created.json()["public_id"]
+
+    response = client.patch(
+        f"/api/boards/{public_id}",
+        json={"image_path": "/uploads/new-logo.png"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["image_path"] == "/uploads/new-logo.png"
+
+
 def test_get_board_events(client: TestClient, db_session: Session) -> None:
     response = client.post("/api/boards", json={"name": "Events Board", "retention_days": 3})
     assert response.status_code == 201
