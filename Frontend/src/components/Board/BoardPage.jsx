@@ -1211,7 +1211,7 @@ export default function BoardPage() {
       ) : null}
 
       {activeModal === 'admin' ? (
-        <Modal title={t('adminPanel', language)} onClose={() => setActiveModal(null)}>
+        <Modal title={t('adminPanel', language)} onClose={() => setActiveModal(null)} size="lg">
           <AdminPanel
             board={board}
             columns={columns}

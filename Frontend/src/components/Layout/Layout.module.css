@@ -439,8 +439,8 @@
   padding: 4px;
 }
 
-.mobileNotificationsMenu {
-  display: none;
+.notificationsOverlay {
+  z-index: 75;
 }
 
 .mobileProfileAvatar {
@@ -980,15 +980,6 @@
     overflow: visible;
   }
 
-  .mobileNotificationsMenu {
-    position: fixed;
-    inset: auto 16px 18px auto;
-    width: min(390px, calc(100vw - 32px));
-    max-height: min(620px, calc(100dvh - 112px));
-    display: grid;
-    z-index: 75;
-    overflow: hidden;
-  }
 }
 
 @media (max-width: 640px) {
@@ -1086,13 +1077,6 @@
     overflow-y: auto;
     border-radius: 20px;
     z-index: 80;
-  }
-
-  .mobileNotificationsMenu {
-    inset: 72px 10px 14px;
-    width: auto;
-    max-height: none;
-    border-radius: 22px;
   }
 
   .compactField {

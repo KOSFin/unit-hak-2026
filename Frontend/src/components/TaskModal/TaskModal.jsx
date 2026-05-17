@@ -133,6 +133,7 @@ export default function TaskModal({
     <Modal
       title={task ? t('editTask', language) : t('createTaskTitle', language)}
       onClose={onClose}
+      size="md"
       footer={
         <div className={styles.footer}>
           {task ? (

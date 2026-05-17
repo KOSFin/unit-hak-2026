@@ -213,7 +213,7 @@ export default function Layout({
       if (filtersRef.current?.contains(event.target)) {
         return;
       }
-      if (event.target.closest?.(`.${styles.mobileNotificationsMenu}`)) {
+      if (event.target.closest?.('[data-notifications-menu="true"]')) {
         return;
       }
       if (event.target.closest?.(`.${styles.mobileMenuPanel}`) || event.target.closest?.(`.${styles.mobileMenuButton}`)) {
@@ -461,14 +461,6 @@ export default function Layout({
               {unreadCount > 0 ? <span className={styles.notificationsBadge}>{unreadCount}</span> : null}
               <span className="sr-only">{t('notifications', language)}</span>
             </Button>
-            {notificationsOpen ? (
-              <NotificationsMenu
-                notifications={notifications}
-                pending={pending}
-                onMarkRead={onMarkNotificationRead}
-                onMarkAllRead={onMarkAllNotificationsRead}
-              />
-            ) : null}
           </div>
 
           {canManageBoard ? (
@@ -742,7 +734,8 @@ export default function Layout({
           pending={pending}
           onMarkRead={onMarkNotificationRead}
           onMarkAllRead={onMarkAllNotificationsRead}
-          className={styles.mobileNotificationsMenu}
+          onClose={onCloseNotifications}
+          className={styles.notificationsOverlay}
         />
       ) : null}
 

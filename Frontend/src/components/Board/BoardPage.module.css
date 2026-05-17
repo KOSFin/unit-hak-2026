@@ -30,6 +30,19 @@
   min-height: 0;
 }
 
+.eventFlowLayer,
+.eventFlowModal {
+  display: flex;
+}
+
+.eventFlowLayer {
+  width: 100%;
+}
+
+.eventFlowModal {
+  flex: 1;
+}
+
 .eventFlowBackdrop,
 .eventFlowClose {
   display: none;

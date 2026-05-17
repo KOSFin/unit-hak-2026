@@ -5,7 +5,7 @@ import { t } from '../../utils/i18n';
 import Button from './Button';
 import styles from './Modal.module.css';
 
-export default function Modal({ title, onClose, children, footer }) {
+export default function Modal({ title, onClose, children, footer, size = 'md' }) {
   const { language } = useLocale();
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function Modal({ title, onClose, children, footer }) {
   return (
     <div className={styles.backdrop} onClick={onClose} role="presentation">
       <div
-        className={styles.modal}
+        className={`${styles.modal} ${styles[size] || styles.md}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"

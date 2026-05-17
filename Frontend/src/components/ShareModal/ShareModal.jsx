@@ -19,7 +19,7 @@ export default function ShareModal({ board, onClose }) {
   };
 
   return (
-    <Modal title={t('shareBoard', language)} onClose={onClose}>
+    <Modal title={t('shareBoard', language)} onClose={onClose} size="sm">
       <div className={styles.content}>
         <p className={styles.text}>{t('anyoneWithLinkCanAccess', language)}</p>
         <div className={styles.linkRow}>
