@@ -45,6 +45,8 @@ class BoardService:
             public_id=public_id,
             retention_days=retention_days,
             image_path=image_path or payload.image_path,
+            owner_guest_id=payload.creator_guest_id,
+            allow_guest_admin=payload.allow_guest_admin,
         )
         for column in DEFAULT_COLUMNS:
             self.column_repo.create(board.id, column["title"], column["position"], column["is_default"])
@@ -62,7 +64,14 @@ class BoardService:
             board.id,
             name=normalized_name,
             image_path=payload.image_path,
+            allow_guest_admin=payload.allow_guest_admin,
         )
+
+    def delete_board(self, public_id: str) -> bool:
+        board = self.get_board_by_public_id(public_id)
+        if not board:
+            return False
+        return self.board_repo.delete(board.id)
 
     def touch_board(self, board_id: str) -> Board | None:
         return self.board_repo.update_last_activity(board_id, datetime.now(UTC))

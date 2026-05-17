@@ -1,7 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { getBoard, updateBoard } from '../../api/boardsApi';
+import { deleteBoard, getBoard, updateBoard } from '../../api/boardsApi';
 import { createColumn, deleteColumn, updateColumn } from '../../api/columnsApi';
 import { createIncomingTask, getIncomingTasks } from '../../api/incomingTasksApi';
 import {
@@ -23,6 +23,7 @@ import EventFlow from '../EventFlow/EventFlow';
 import Layout from '../Layout/Layout';
 import TaskModal from '../TaskModal/TaskModal';
 import Modal from '../Ui/Modal';
+import Toast from '../Ui/Toast';
 import Board from './Board';
 import styles from './BoardPage.module.css';
 
@@ -107,6 +108,7 @@ export default function BoardPage() {
   const [editingUsersMap, setEditingUsersMap] = useState({});
   const [draggingUsersMap, setDraggingUsersMap] = useState({});
   const [realtimeStatus, setRealtimeStatus] = useState('idle');
+  const [toast, setToast] = useState(null);
   const [taskView, setTaskView] = useState({
     boardId: publicBoardId,
     ...DEFAULT_TASK_VIEW,
@@ -114,6 +116,7 @@ export default function BoardPage() {
 
   const socketRef = useRef(null);
   const crossTabRef = useRef(null);
+  const previousRealtimeStatusRef = useRef('idle');
   const activeTaskView = taskView.boardId === publicBoardId
     ? taskView
     : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW };
@@ -210,6 +213,11 @@ export default function BoardPage() {
       return undefined;
     }
 
+    const updateRealtimeState = (nextStatus) => {
+      previousRealtimeStatusRef.current = nextStatus;
+      setRealtimeStatus(nextStatus);
+    };
+
     const sendPresenceJoin = (wsClient) => {
       wsClient.send(
         JSON.stringify({
@@ -227,17 +235,30 @@ export default function BoardPage() {
 
     const socket = createRealtimeSocket({
       onConnecting: () => {
-        setRealtimeStatus('connecting');
+        updateRealtimeState('connecting');
       },
       onOpen: (wsClient) => {
-        setRealtimeStatus('connected');
+        updateRealtimeState('connected');
         sendPresenceJoin(wsClient);
       },
       onClose: () => {
-        setRealtimeStatus('disconnected');
+        const previousStatus = previousRealtimeStatusRef.current;
+        updateRealtimeState('disconnected');
+        if (previousStatus === 'connected') {
+          setToast({
+            tone: 'danger',
+            title: t('realtimeConnectionIssue', language),
+            message: t('realtimeDisconnectedMessage', language),
+          });
+        }
       },
       onError: () => {
-        setRealtimeStatus('error');
+        updateRealtimeState('error');
+        setToast({
+          tone: 'danger',
+          title: t('realtimeConnectionIssue', language),
+          message: t('realtimeConnectionIssueMessage', language),
+        });
       },
       onMessage: (message) => {
         if (message.type === 'presence.snapshot' || message.type === 'presence.updated') {
@@ -251,7 +272,12 @@ export default function BoardPage() {
         }
 
         if (message.type === 'system.error') {
-          setRealtimeStatus('error');
+          updateRealtimeState('error');
+          setToast({
+            tone: 'danger',
+            title: t('realtimeConnectionIssue', language),
+            message: t('realtimeConnectionIssueMessage', language),
+          });
           return;
         }
 
@@ -302,6 +328,7 @@ export default function BoardPage() {
     return () => {
       socket.close();
       socketRef.current = null;
+      previousRealtimeStatusRef.current = 'idle';
       setRealtimeStatus('idle');
       setOnlineUsers([]);
       setEditingUsersMap({});
@@ -310,6 +337,7 @@ export default function BoardPage() {
   }, [
     board,
     identity,
+    language,
     refreshBoardShell,
     refreshIncomingTasks,
     refreshNotifications,
@@ -407,6 +435,19 @@ export default function BoardPage() {
     }
     crossTabRef.current.send('incoming-tasks-updated', incomingTasks);
   }, [incomingTasks]);
+
+  useEffect(() => {
+    if (!toast) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(null);
+    }, 4200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
+
   const sendWsUpdate = useCallback(
     (type, extra = {}) => {
       if (!board || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
@@ -691,6 +732,42 @@ export default function BoardPage() {
     [board, language],
   );
 
+  const handleUpdateBoardSettings = useCallback(
+    async (payload) => {
+      if (!board) {
+        return;
+      }
+
+      setAdminPending(true);
+      try {
+        const updatedBoard = await updateBoard(board.public_id, payload);
+        setBoard(updatedBoard);
+        setColumns(updatedBoard.columns || []);
+      } catch (caughtError) {
+        alert(caughtError.response?.data?.detail || t('error', language));
+      } finally {
+        setAdminPending(false);
+      }
+    },
+    [board, language],
+  );
+
+  const handleDeleteBoard = useCallback(async () => {
+    if (!board || !window.confirm(t('deleteBoardConfirm', language))) {
+      return;
+    }
+
+    setAdminPending(true);
+    try {
+      await deleteBoard(board.public_id);
+      navigate('/');
+    } catch (caughtError) {
+      alert(caughtError.response?.data?.detail || t('failedToDeleteBoard', language));
+    } finally {
+      setAdminPending(false);
+    }
+  }, [board, language, navigate]);
+
   const filteredTasks = useMemo(() => {
     const searchNeedle = deferredSearchQuery.trim().toLowerCase();
     const columnTitles = new Map(columns.map((column) => [column.id, column.title]));
@@ -762,6 +839,7 @@ export default function BoardPage() {
     activeColumnFilter !== 'ALL' ||
     activeTaskView.priorityFilter !== 'ALL' ||
     activeTaskView.sortMode !== 'BOARD_ORDER';
+  const canManageBoard = Boolean(board?.allow_guest_admin || !board?.owner_guest_id || board?.owner_guest_id === identity.id);
 
   if (loading) {
     return (
@@ -876,6 +954,7 @@ export default function BoardPage() {
         await markAllNotificationsRead(board.id);
         setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
       }}
+      canManageBoard={canManageBoard}
     >
       <div
         className={`${styles.boardLayout} ${eventFlowOpen ? styles.boardLayoutWithAside : ''}`.trim()}
@@ -913,10 +992,14 @@ export default function BoardPage() {
       {activeModal === 'admin' ? (
         <Modal title={t('adminPanel', language)} onClose={() => setActiveModal(null)}>
           <AdminPanel
+            board={board}
             columns={columns}
             rules={rules}
             incomingTasks={incomingTasks}
             pending={adminPending}
+            canManageBoard={canManageBoard}
+            onUpdateBoardSettings={handleUpdateBoardSettings}
+            onDeleteBoard={handleDeleteBoard}
             onCreateColumn={handleCreateColumn}
             onRenameColumn={handleRenameColumn}
             onDeleteColumn={handleDeleteColumn}
@@ -927,6 +1010,8 @@ export default function BoardPage() {
           />
         </Modal>
       ) : null}
+
+      <Toast toast={toast} />
     </Layout>
   );
 }

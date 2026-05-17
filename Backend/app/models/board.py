@@ -13,6 +13,8 @@ class Board(Base):
     public_id = sa.Column(sa.String(32), nullable=False, unique=True, index=True)
     name = sa.Column(sa.String(200), nullable=False)
     image_path = sa.Column(sa.String(500), nullable=True)
+    owner_guest_id = sa.Column(sa.String(64), nullable=True)
+    allow_guest_admin = sa.Column(sa.Boolean, nullable=False, default=False, server_default=sa.false())
     retention_days = sa.Column(sa.Integer, nullable=False, default=3)
     expires_after_days = sa.Column(sa.Integer, nullable=False, default=3)
     last_activity_at = sa.Column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)

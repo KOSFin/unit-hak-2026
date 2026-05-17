@@ -15,6 +15,10 @@ export async function updateBoard(publicBoardId, payload) {
   return data;
 }
 
+export async function deleteBoard(publicBoardId) {
+  await apiClient.delete(`/api/boards/${publicBoardId}`);
+}
+
 export async function getBoardEvents(publicBoardId, limit = 50) {
   const { data } = await apiClient.get(`/api/boards/${publicBoardId}/events`, {
     params: { limit },

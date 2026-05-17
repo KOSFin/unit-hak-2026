@@ -105,6 +105,15 @@ function ToolbarIcon({ children }) {
   return <span className={styles.toolbarIcon}>{children}</span>;
 }
 
+function getRetentionPresetOptions(language) {
+  return [
+    { value: 3, label: language === 'ru' ? '3 дня' : '3 days', locked: false },
+    { value: 7, label: language === 'ru' ? '7 дней' : '7 days', locked: true },
+    { value: 30, label: language === 'ru' ? '30 дней' : '30 days', locked: true },
+    { value: 365, label: language === 'ru' ? '1 год' : '1 year', locked: true },
+  ];
+}
+
 export default function Layout({
   board,
   identity,
@@ -138,11 +147,14 @@ export default function Layout({
   // eslint-disable-next-line no-unused-vars
   totalTaskCount = 0,
   taskViewActive = false,
+  canManageBoard = true,
 }) {
   const { language } = useLocale();
   const unreadCount = notifications.filter((notification) => !notification.read).length;
   const menuRef = useRef(null);
   const onlineRef = useRef(null);
+  const boardInfoRef = useRef(null);
+  const filtersRef = useRef(null);
   const boardImageInputRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -160,19 +172,27 @@ export default function Layout({
   }, []);
 
   useEffect(() => {
-    if (!notificationsOpen && !onlineOpen) {
+    if (!notificationsOpen && !onlineOpen && !boardInfoOpen && !filtersOpen) {
       return undefined;
     }
 
     const handleOutsideClick = (event) => {
-      if (!menuRef.current || menuRef.current.contains(event.target)) {
+      if (menuRef.current?.contains(event.target)) {
         return;
       }
-      if (onlineRef.current && onlineRef.current.contains(event.target)) {
+      if (onlineRef.current?.contains(event.target)) {
+        return;
+      }
+      if (boardInfoRef.current?.contains(event.target)) {
+        return;
+      }
+      if (filtersRef.current?.contains(event.target)) {
         return;
       }
       onCloseNotifications();
       setOnlineOpen(false);
+      setBoardInfoOpen(false);
+      setFiltersOpen(false);
     };
 
     const handleEscape = (event) => {
@@ -180,6 +200,7 @@ export default function Layout({
         onCloseNotifications();
         setOnlineOpen(false);
         setBoardInfoOpen(false);
+        setFiltersOpen(false);
       }
     };
 
@@ -189,9 +210,10 @@ export default function Layout({
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [notificationsOpen, onlineOpen, onCloseNotifications]);
+  }, [boardInfoOpen, filtersOpen, notificationsOpen, onlineOpen, onCloseNotifications]);
 
   const lifecycle = useMemo(() => buildLifecycleSnapshot(board, now, language), [board, now, language]);
+  const retentionOptions = useMemo(() => getRetentionPresetOptions(language), [language]);
 
   const displayedUsers = onlineUsers.slice(0, 3);
   const extraUsers = Math.max(0, onlineUsers.length - 3);
@@ -234,31 +256,22 @@ export default function Layout({
             <div className={styles.boardTitleRow}>
               <h1 className={styles.boardTitle}>{board?.name ?? t('untitledBoard', language)}</h1>
 
-              <div
-                className={styles.infoWrap}
-                onMouseEnter={() => setBoardInfoOpen(true)}
-                onMouseLeave={() => setBoardInfoOpen(false)}
-                onFocus={() => setBoardInfoOpen(true)}
-                onBlur={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) {
-                    setBoardInfoOpen(false);
-                  }
-                }}
-              >
+              <div className={styles.infoWrap} ref={boardInfoRef}>
                 <button
                   type="button"
                   className={styles.infoButton}
                   aria-label={t('boardLifetimeDetails', language)}
                   aria-expanded={boardInfoOpen}
+                  onClick={() => setBoardInfoOpen((current) => !current)}
                 >
-                  !
+                  i
                 </button>
 
                 {boardInfoOpen ? (
                   <div className={styles.infoCard} role="note" aria-label={t('boardLifetimeDetails', language)}>
                     <div className={styles.infoHeader}>
                       <div>
-                        <p className={styles.infoEyebrow}>{t('boardLifecycle', language)}</p>
+                          <p className={styles.infoEyebrow}>{t('boardLifecycle', language)}</p>
                         <h2>{t('temporaryWorkspaceStatus', language)}</h2>
                       </div>
                       <span className={`${styles.lifecycleBadge} ${lifecycle.state.toneClassName}`}>
@@ -266,42 +279,49 @@ export default function Layout({
                       </span>
                     </div>
 
-                    <div className={styles.infoGrid}>
-                      <article className={styles.infoStatCard}>
+                    <p className={styles.infoSummary}>{t('autoDeleteSummary', language)}</p>
+
+                    <div className={styles.infoRows}>
+                      <div className={styles.infoRow}>
                         <span>{t('lastActivity', language)}</span>
                         <strong>{lifecycle.lastActivityLabel}</strong>
-                        <p>{t('mostRecentBoardAction', language)}</p>
-                      </article>
-
-                      <article className={styles.infoStatCard}>
-                        <span>{t('retentionWindow', language)}</span>
-                        <strong>{lifecycle.retentionLabel}</strong>
-                        <p>{t('everyFreshTaskRefreshesTimer', language)}</p>
-                      </article>
-
-                      <article className={styles.infoStatCard}>
+                      </div>
+                      <div className={styles.infoRow}>
                         <span>{t('timeRemaining', language)}</span>
                         <strong>{lifecycle.timeLeftLabel}</strong>
-                        <p>{lifecycle.state.helper}</p>
-                      </article>
-                    </div>
-
-                    <div className={styles.infoFooter}>
-                      <div className={styles.infoFooterHeader}>
+                      </div>
+                      <div className={styles.infoRow}>
                         <span>{t('nextCleanupCheckpoint', language)}</span>
                         <strong>{lifecycle.expiresAtLabel}</strong>
                       </div>
+                    </div>
 
-                      <div className={styles.lockedRetention}>
-                        <div className={styles.lockedRetentionCopy}>
-                          <span>{t('retentionPreset', language)}</span>
-                          <p>{t('longLivedBoardsUnlockSoon', language)}</p>
-                        </div>
+                    <p className={styles.infoHint}>{lifecycle.state.helper}</p>
 
-                        <button type="button" className={styles.lockedSelect} disabled>
-                          <span>{board?.expires_after_days ?? 3} {t('mvpBoardDays', language)}</span>
-                          <span className={styles.lockedSelectMeta}>{t('authSoon', language)}</span>
-                        </button>
+                    <div className={styles.lockedRetention}>
+                      <div className={styles.lockedRetentionCopy}>
+                        <span>{t('retentionPreset', language)}</span>
+                        <p>{t('longLivedBoardsUnlockSoon', language)}</p>
+                      </div>
+
+                      <div className={styles.retentionOptions}>
+                        {retentionOptions.map((option) => {
+                          const isActive = option.value === (board?.expires_after_days ?? 3);
+
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`${styles.retentionOption} ${isActive ? styles.retentionOptionActive : ''}`}
+                              disabled={!isActive}
+                            >
+                              <span>{option.label}</span>
+                              <span className={styles.retentionOptionMeta}>
+                                {isActive ? t('currentPreset', language) : t('availableAfterLogin', language)}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -324,7 +344,6 @@ export default function Layout({
                   className={`${styles.realtimeDot} ${styles[`status${realtimeStatus[0]?.toUpperCase?.() + realtimeStatus.slice(1)}`] || ''}`}
                 ></span>
                 <div className={styles.onlineLabelBlock}>
-                  <span className={styles.onlineLabel}>{t('liveNow', language)}</span>
                   <span className={styles.onlineValue}>{realtimeLabel}</span>
                 </div>
                 <div className={styles.onlineAvatars}>
@@ -431,13 +450,15 @@ export default function Layout({
             ) : null}
           </div>
 
-          <Button variant="secondary" size="sm" onClick={onOpenAdmin} className={styles.adminButton}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            <span>{t('admin', language)}</span>
-          </Button>
+          {canManageBoard ? (
+            <Button variant="secondary" size="sm" onClick={onOpenAdmin} className={styles.adminButton}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>{t('admin', language)}</span>
+            </Button>
+          ) : null}
 
           <button
             type="button"
@@ -485,70 +506,72 @@ export default function Layout({
             )}
           </label>
 
-          <button
-            type="button"
-            className={`${styles.toolbarChip} ${filtersOpen ? styles.toolbarChipActive : ''} ${taskViewActive ? styles.toolbarChipWarning : ''}`}
-            onClick={() => setFiltersOpen((current) => !current)}
-            title={taskViewActive ? t('dragPausedWarning', language) : ''}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-            </svg>
-            <span>{t('filters', language)}</span>
-            {taskViewActive && <span className={styles.chipBadge}>!</span>}
-          </button>
+          <div className={styles.filterWrap} ref={filtersRef}>
+            <button
+              type="button"
+              className={`${styles.toolbarChip} ${filtersOpen ? styles.toolbarChipActive : ''} ${taskViewActive ? styles.toolbarChipWarning : ''}`}
+              onClick={() => setFiltersOpen((current) => !current)}
+              title={taskViewActive ? t('dragPausedWarning', language) : ''}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              <span>{t('filters', language)}</span>
+              {taskViewActive && <span className={styles.chipBadge}>!</span>}
+            </button>
 
-          {filtersOpen ? (
-            <div className={styles.filterPanel}>
-              <label className={styles.compactField}>
-                <span>{t('columnFilter', language)}</span>
-                <select value={columnFilter} onChange={(event) => onColumnFilterChange?.(event.target.value)}>
-                  <option value="ALL">{t('allColumns', language)}</option>
-                  {columns.map((column) => (
-                    <option key={column.id} value={column.id}>
-                      {column.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {filtersOpen ? (
+              <div className={styles.filterPanel}>
+                <label className={styles.compactField}>
+                  <span>{t('columnFilter', language)}</span>
+                  <select value={columnFilter} onChange={(event) => onColumnFilterChange?.(event.target.value)}>
+                    <option value="ALL">{t('allColumns', language)}</option>
+                    {columns.map((column) => (
+                      <option key={column.id} value={column.id}>
+                        {column.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label className={styles.compactField}>
-                <span>{t('priorityFilter', language)}</span>
-                <select
-                  value={priorityFilter}
-                  onChange={(event) => onPriorityFilterChange?.(event.target.value)}
-                >
-                  <option value="ALL">{t('anyPriority', language)}</option>
-                  <option value="CRITICAL">{t('critical', language)}</option>
-                  <option value="HIGH">{t('high', language)}</option>
-                  <option value="MEDIUM">{t('medium', language)}</option>
-                  <option value="LOW">{t('low', language)}</option>
-                </select>
-              </label>
+                <label className={styles.compactField}>
+                  <span>{t('priorityFilter', language)}</span>
+                  <select
+                    value={priorityFilter}
+                    onChange={(event) => onPriorityFilterChange?.(event.target.value)}
+                  >
+                    <option value="ALL">{t('anyPriority', language)}</option>
+                    <option value="CRITICAL">{t('critical', language)}</option>
+                    <option value="HIGH">{t('high', language)}</option>
+                    <option value="MEDIUM">{t('medium', language)}</option>
+                    <option value="LOW">{t('low', language)}</option>
+                  </select>
+                </label>
 
-              <label className={styles.compactField}>
-                <span>{t('sortBy', language)}</span>
-                <select value={sortMode} onChange={(event) => onSortModeChange?.(event.target.value)}>
-                  <option value="BOARD_ORDER">{t('boardOrder', language)}</option>
-                  <option value="UPDATED_DESC">{t('recentlyUpdated', language)}</option>
-                  <option value="PRIORITY_DESC">{t('priorityFirst', language)}</option>
-                  <option value="DEADLINE_ASC">{t('nearestDeadline', language)}</option>
-                  <option value="TITLE_ASC">{t('titleAZ', language)}</option>
-                </select>
-              </label>
+                <label className={styles.compactField}>
+                  <span>{t('sortBy', language)}</span>
+                  <select value={sortMode} onChange={(event) => onSortModeChange?.(event.target.value)}>
+                    <option value="BOARD_ORDER">{t('boardOrder', language)}</option>
+                    <option value="UPDATED_DESC">{t('recentlyUpdated', language)}</option>
+                    <option value="PRIORITY_DESC">{t('priorityFirst', language)}</option>
+                    <option value="DEADLINE_ASC">{t('nearestDeadline', language)}</option>
+                    <option value="TITLE_ASC">{t('titleAZ', language)}</option>
+                  </select>
+                </label>
 
-              {taskViewActive && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={onResetTaskView}
-                  className={styles.resetButton}
-                >
-                  {t('resetView', language)}
-                </Button>
-              )}
-            </div>
-          ) : null}
+                {taskViewActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onResetTaskView}
+                    className={styles.resetButton}
+                  >
+                    {t('resetView', language)}
+                  </Button>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <Button size="sm" onClick={onCreateTask} className={styles.createTaskButton}>
             {t('createTask', language)}

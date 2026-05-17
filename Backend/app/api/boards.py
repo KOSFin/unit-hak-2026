@@ -22,6 +22,8 @@ def serialize_board_detail(service: BoardService, board) -> BoardDetail:
         board_url=service.get_board_url(board.public_id),
         name=board.name,
         image_path=board.image_path,
+        owner_guest_id=board.owner_guest_id,
+        allow_guest_admin=board.allow_guest_admin,
         retention_days=board.retention_days,
         expires_after_days=board.expires_after_days,
         last_activity_at=board.last_activity_at,
@@ -71,6 +73,14 @@ def update_board(public_board_id: str, payload: BoardUpdate, session: SessionDep
     if not board:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
     return serialize_board_detail(service, board)
+
+
+@router.delete("/{public_board_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_board(public_board_id: str, session: SessionDep) -> None:
+    service = BoardService(session)
+    deleted = service.delete_board(public_board_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
 
 
 @router.get("/{public_board_id}/events", response_model=list[ActivityGroupRead])

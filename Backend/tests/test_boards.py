@@ -19,6 +19,8 @@ def test_create_board(client: TestClient, db_session: Session) -> None:
     assert "public_id" in data
     assert data["retention_days"] == 3
     assert data["image_path"] == "/uploads/board-logo.png"
+    assert data["owner_guest_id"] is None
+    assert data["allow_guest_admin"] is False
     assert data["board_url"].endswith(f"/board/{data['public_id']}")
 
 
@@ -54,6 +56,34 @@ def test_update_board_image_path(client: TestClient, db_session: Session) -> Non
     assert response.status_code == 200
     data = response.json()
     assert data["image_path"] == "/uploads/new-logo.png"
+
+
+def test_create_board_with_guest_admin_settings(client: TestClient, db_session: Session) -> None:
+    response = client.post(
+        "/api/boards",
+        json={
+            "name": "Guest Admin Board",
+            "retention_days": 3,
+            "creator_guest_id": "guest-123",
+            "allow_guest_admin": True,
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["owner_guest_id"] == "guest-123"
+    assert data["allow_guest_admin"] is True
+
+
+def test_delete_board(client: TestClient, db_session: Session) -> None:
+    created = client.post("/api/boards", json={"name": "Delete Me", "retention_days": 3})
+    assert created.status_code == 201
+    public_id = created.json()["public_id"]
+
+    response = client.delete(f"/api/boards/{public_id}")
+    assert response.status_code == 204
+
+    missing = client.get(f"/api/boards/{public_id}")
+    assert missing.status_code == 404
 
 
 def test_get_board_events(client: TestClient, db_session: Session) -> None:

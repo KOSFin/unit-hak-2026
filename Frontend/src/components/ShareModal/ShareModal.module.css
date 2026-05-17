@@ -12,29 +12,23 @@
 .linkRow {
   display: flex;
   gap: 0.5rem;
+  align-items: stretch;
 }
 
 .input {
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-dimmed);
+  min-height: 42px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
 }
 
-.iconButton {
-  min-width: 40px;
-  padding-inline: 0;
+.copyButton {
+  white-space: nowrap;
 }
 
 .helper {
-  margin-top: 0.5rem;
   color: var(--color-text-dimmed);
   font-size: 0.8rem;
-}
-
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
 }

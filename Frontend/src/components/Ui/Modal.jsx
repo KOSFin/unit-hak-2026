@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import Button from './Button';
 import styles from './Modal.module.css';
 
 export default function Modal({ title, onClose, children, footer }) {
+  const { language } = useLocale();
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -25,8 +29,8 @@ export default function Modal({ title, onClose, children, footer }) {
       >
         <div className={styles.header}>
           <h2>{title}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('close', language)} className={styles.closeButton}>
+            <span aria-hidden="true">×</span>
           </Button>
         </div>
         <div className={styles.content}>{children}</div>

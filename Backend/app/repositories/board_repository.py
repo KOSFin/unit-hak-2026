@@ -20,12 +20,16 @@ class BoardRepository:
         public_id: str | None = None,
         retention_days: int = 3,
         image_path: str | None = None,
+        owner_guest_id: str | None = None,
+        allow_guest_admin: bool = False,
     ) -> Board:
         if not public_id:
             public_id = token_urlsafe(12).replace("-", "").replace("_", "")[:20]
         board = Board(
             name=name,
             public_id=public_id,
+            owner_guest_id=owner_guest_id,
+            allow_guest_admin=allow_guest_admin,
             retention_days=retention_days,
             expires_after_days=retention_days,
             image_path=image_path,
@@ -62,7 +66,13 @@ class BoardRepository:
         self.session.refresh(board)
         return board
 
-    def update(self, board_id: str, name: str | None = None, image_path: str | None = None) -> Board | None:
+    def update(
+        self,
+        board_id: str,
+        name: str | None = None,
+        image_path: str | None = None,
+        allow_guest_admin: bool | None = None,
+    ) -> Board | None:
         board = self.get_by_id(board_id)
         if not board:
             return None
@@ -70,6 +80,8 @@ class BoardRepository:
             board.name = name
         if image_path is not None:
             board.image_path = image_path
+        if allow_guest_admin is not None:
+            board.allow_guest_admin = allow_guest_admin
         self.session.commit()
         self.session.refresh(board)
         return board

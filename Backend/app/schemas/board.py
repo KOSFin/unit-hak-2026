@@ -11,6 +11,8 @@ class BoardRead(BaseModel):
     board_url: str | None = None
     name: str
     image_path: str | None = None
+    owner_guest_id: str | None = None
+    allow_guest_admin: bool = False
     retention_days: int
     expires_after_days: int
     last_activity_at: datetime
@@ -29,11 +31,14 @@ class BoardCreate(BaseModel):
     name: str
     retention_days: int = 3
     image_path: str | None = None
+    creator_guest_id: str | None = None
+    allow_guest_admin: bool = False
 
 
 class BoardUpdate(BaseModel):
     name: str | None = None
     image_path: str | None = None
+    allow_guest_admin: bool | None = None
 
 
 class BoardCreatedResponse(BoardDetail):

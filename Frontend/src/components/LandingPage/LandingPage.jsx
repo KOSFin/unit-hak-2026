@@ -6,6 +6,7 @@ import { getBoardPublicUrl, resolveAppUrl } from '../../api/client';
 import { uploadImage } from '../../api/uploadsApi';
 import { useLocale } from '../../contexts/LocaleContext';
 import { t } from '../../utils/i18n';
+import { getGuestIdentity } from '../../utils/guest';
 import Button from '../Ui/Button';
 import Input from '../Ui/Input';
 import Select from '../Ui/Select';
@@ -14,8 +15,10 @@ import styles from './LandingPage.module.css';
 export default function LandingPage() {
   const navigate = useNavigate();
   const { language } = useLocale();
+  const identity = getGuestIdentity();
   const [name, setName] = useState('');
   const [retention, setRetention] = useState('3');
+  const [adminAccess, setAdminAccess] = useState('creator-only');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [pending, setPending] = useState(false);
@@ -25,7 +28,7 @@ export default function LandingPage() {
   const fileInputRef = useRef(null);
 
   const RETENTION_OPTIONS = [
-    { value: '3', label: language === 'ru' ? '3 дня (MVP временная доска)' : '3 days (MVP temporary board)' },
+    { value: '3', label: language === 'ru' ? '3 дня' : '3 days' },
     { value: '7', label: language === 'ru' ? '7 дней' : '7 days' },
     { value: '30', label: language === 'ru' ? '30 дней' : '30 days' },
     { value: '365', label: language === 'ru' ? '1 год' : '1 year' },
@@ -68,6 +71,8 @@ export default function LandingPage() {
         name: name.trim(),
         retention_days: parseInt(retention, 10),
         image_path: imagePath,
+        creator_guest_id: identity.id,
+        allow_guest_admin: adminAccess === 'all-guests',
       });
 
       setCreatedBoard(board);
@@ -165,6 +170,35 @@ export default function LandingPage() {
                </Button>
              </div>
           )}
+        </div>
+
+        <div className={styles.formGroup}>
+          <div className={styles.optionLabel}>{t('adminAccess', language)}</div>
+          <div className={styles.accessGrid}>
+            <label className={`${styles.accessCard} ${adminAccess === 'creator-only' ? styles.accessCardActive : ''}`}>
+              <input
+                type="radio"
+                name="admin-access"
+                value="creator-only"
+                checked={adminAccess === 'creator-only'}
+                onChange={(event) => setAdminAccess(event.target.value)}
+              />
+              <strong>{t('creatorOnlyAdmin', language)}</strong>
+              <span>{t('creatorOnlyAdminHint', language)}</span>
+            </label>
+
+            <label className={`${styles.accessCard} ${adminAccess === 'all-guests' ? styles.accessCardActive : ''}`}>
+              <input
+                type="radio"
+                name="admin-access"
+                value="all-guests"
+                checked={adminAccess === 'all-guests'}
+                onChange={(event) => setAdminAccess(event.target.value)}
+              />
+              <strong>{t('allGuestsAdmin', language)}</strong>
+              <span>{t('allGuestsAdminHint', language)}</span>
+            </label>
+          </div>
         </div>
 
         <Button type="submit" disabled={pending || retention !== '3'} className={styles.submitBtn}>

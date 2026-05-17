@@ -13,6 +13,12 @@
   z-index: 40;
 }
 
+.title {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.92rem;
+}
+
 .neutral {
   color: var(--text-primary);
 }
