@@ -17,6 +17,7 @@ class TaskCreate(BaseModel):
     position: int | None = None
     correlation_id: str | None = None
     guest_id: str | None = None
+    actor: dict[str, str | None] | None = None
 
 
 class TaskUpdate(BaseModel):
@@ -29,6 +30,7 @@ class TaskUpdate(BaseModel):
     version: int
     correlation_id: str | None = None
     guest_id: str | None = None
+    actor: dict[str, str | None] | None = None
 
 
 class TaskMove(BaseModel):
@@ -38,6 +40,7 @@ class TaskMove(BaseModel):
     version: int
     correlation_id: str | None = None
     guest_id: str | None = None
+    actor: dict[str, str | None] | None = None
 
 
 class TaskRead(BaseModel):

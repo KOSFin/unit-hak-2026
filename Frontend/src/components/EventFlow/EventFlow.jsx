@@ -13,6 +13,7 @@ const SOURCE_COLORS = {
   WS: 'neutral',
   SYSTEM: 'neutral',
 };
+const COMPACT_GROUP_WINDOW_MS = 90 * 1000;
 
 function describeEvent(event) {
   const task = event.payload?.task;
@@ -124,6 +125,7 @@ function describeEvent(event) {
 
 function getEventActorId(event) {
   return (
+    event.payload?.actor?.guest_id ||
     event.payload?.task?.guest_id ||
     event.payload?.guest_id ||
     event.payload?.notification?.guest_id ||
@@ -146,12 +148,31 @@ function getOperationSummary(events) {
   return `${titles[0]} and ${titles.length - 1} more`;
 }
 
+function formatEventTime(value) {
+  return new Date(value).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function withinCompactWindow(leftEvent, rightEvent) {
+  const leftTime = new Date(leftEvent.created_at).getTime();
+  const rightTime = new Date(rightEvent.created_at).getTime();
+  return Math.abs(leftTime - rightTime) <= COMPACT_GROUP_WINDOW_MS;
+}
+
+function getClusterFingerprint(cluster) {
+  return `${cluster.actorId || 'system'}:${cluster.source}`;
+}
+
 function buildEventClusters(events, onlineUsers) {
   const usersMap = new Map(onlineUsers.map((user) => [user.guest_id, user]));
 
   return events.reduce((clusters, event) => {
     const actorId = getEventActorId(event);
     const source = event.source || 'SYSTEM';
+    const details = describeEvent(event);
+    const actorFromPayload = event.payload?.actor || null;
     const previousCluster = clusters[clusters.length - 1];
 
     if (
@@ -159,7 +180,8 @@ function buildEventClusters(events, onlineUsers) {
       previousCluster.actorId &&
       actorId &&
       previousCluster.actorId === actorId &&
-      previousCluster.source === source
+      previousCluster.source === source &&
+      previousCluster.title === details.title
     ) {
       previousCluster.events.push(event);
       return clusters;
@@ -168,7 +190,8 @@ function buildEventClusters(events, onlineUsers) {
     clusters.push({
       actorId,
       source,
-      actor: actorId ? usersMap.get(actorId) || null : null,
+      title: details.title,
+      actor: actorFromPayload || (actorId ? usersMap.get(actorId) || null : null),
       events: [event],
     });
     return clusters;
@@ -183,10 +206,13 @@ function buildCompactGroups(events, onlineUsers) {
     const previous = grouped[grouped.length - 1];
     if (
       previous &&
-      previous.actorId === cluster.actorId &&
-      previous.source === cluster.source
+      getClusterFingerprint(previous) === getClusterFingerprint(cluster) &&
+      withinCompactWindow(previous.events[previous.events.length - 1], cluster.events[0])
     ) {
       previous.events.push(...cluster.events);
+      if (!previous.actor && cluster.actor) {
+        previous.actor = cluster.actor;
+      }
       return;
     }
 
@@ -207,9 +233,53 @@ function summarizeEventBatch(events) {
   return `${titles[0]} + ${titles.length - 1} more`;
 }
 
+function summarizeEventMessages(events) {
+  const messages = [...new Set(events.map((event) => describeEvent(event).message))];
+  if (messages.length <= 2) {
+    return messages.join(' ');
+  }
+  return `${messages.slice(0, 2).join(' ')} +${messages.length - 2} more updates.`;
+}
+
+function mergeRenderedGroups(groups, onlineUsers) {
+  const rendered = [];
+
+  groups.forEach((group) => {
+    const clusters = buildCompactGroups(group.events, onlineUsers);
+    const previous = rendered[rendered.length - 1];
+    const firstCluster = clusters[0];
+    const previousLastCluster = previous?.clusters?.[previous.clusters.length - 1];
+
+    if (
+      previous &&
+      previousLastCluster &&
+      firstCluster &&
+      getClusterFingerprint(previousLastCluster) === getClusterFingerprint(firstCluster) &&
+      withinCompactWindow(
+        previousLastCluster.events[previousLastCluster.events.length - 1],
+        firstCluster.events[0],
+      )
+    ) {
+      previous.events.push(...group.events);
+      previous.clusters.push(...clusters);
+      return;
+    }
+
+    rendered.push({
+      key: group.correlation_id || `group-${rendered.length}`,
+      correlationId: group.correlation_id,
+      events: [...group.events],
+      clusters,
+    });
+  });
+
+  return rendered;
+}
+
 export default function EventFlow({ boardId, onlineUsers = [] }) {
   const [groups, setGroups] = useState([]);
   const containerRef = useRef(null);
+  const renderedGroups = mergeRenderedGroups(groups, onlineUsers);
 
   useEffect(() => {
     async function load() {
@@ -233,14 +303,12 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
         <p className={styles.subtitle}>Live board activity, grouped by operation.</p>
       </div>
       <div className={styles.content} ref={containerRef}>
-        {groups.length === 0 ? (
+        {renderedGroups.length === 0 ? (
            <p className={styles.empty}>No activity yet.</p>
         ) : (
-          groups.map((group, idx) => {
-            const clusters = buildCompactGroups(group.events, onlineUsers);
-
+          renderedGroups.map((group, idx) => {
             return (
-              <div key={group.correlation_id || `group-${idx}`} className={styles.group}>
+              <div key={group.key} className={styles.group}>
                 <div className={styles.groupHeader}>
                   <div>
                     <span className={styles.groupLabel}>Operation</span>
@@ -248,12 +316,12 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                   </div>
                   <div className={styles.groupMeta}>
                     <span>{group.events.length} event{group.events.length === 1 ? '' : 's'}</span>
-                    {group.correlation_id ? <code>{group.correlation_id.slice(0, 8)}</code> : null}
+                    {group.correlationId ? <code>{group.correlationId.slice(0, 8)}</code> : null}
                   </div>
                 </div>
 
-                {clusters.map((cluster, clusterIndex) => (
-                  <div key={`${group.correlation_id || idx}-${clusterIndex}`} className={styles.cluster}>
+                {group.clusters.map((cluster, clusterIndex) => (
+                  <div key={`${group.key}-${clusterIndex}`} className={styles.cluster}>
                     <div className={styles.clusterIntro}>
                       {cluster.actor ? (
                         <div className={styles.userStamp}>
@@ -289,19 +357,19 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                       </div>
                       <div className={styles.eventContent}>
                         <div className={styles.eventMeta}>
-                          <span className={styles.time}>
-                            {new Date(cluster.events[0].created_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
+                          <span className={styles.time}>{formatEventTime(cluster.events[0].created_at)}</span>
+                          {cluster.events.length > 1 ? (
+                            <span className={styles.timeRange}>
+                              {formatEventTime(cluster.events[cluster.events.length - 1].created_at)}
+                            </span>
+                          ) : null}
                           <span className={styles.count}>
                             {cluster.events.length} action{cluster.events.length === 1 ? '' : 's'}
                           </span>
                         </div>
                         <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events)}</div>
                         <p className={styles.eventMessage}>
-                          {cluster.events.map((event) => describeEvent(event).message).join(' ')}
+                          {summarizeEventMessages(cluster.events)}
                         </p>
                       </div>
                     </div>

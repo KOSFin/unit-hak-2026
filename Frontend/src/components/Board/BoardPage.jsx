@@ -56,6 +56,15 @@ function generateCorrelationId() {
   return `corr-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function buildActorSnapshot(identity) {
+  return {
+    guest_id: identity.id,
+    display_name: identity.displayName,
+    color: identity.color,
+    avatar_url: identity.avatarUrl,
+  };
+}
+
 export default function BoardPage() {
   const { publicBoardId } = useParams();
   const navigate = useNavigate();
@@ -216,8 +225,6 @@ export default function BoardPage() {
           return;
         }
 
-        window.dispatchEvent(new Event('board-event-flow-update'));
-
         if (
           message.type === 'task.created' ||
           message.type === 'task.updated' ||
@@ -225,6 +232,7 @@ export default function BoardPage() {
           message.type === 'task.deleted'
         ) {
           refreshTasks(board.id);
+          window.dispatchEvent(new Event('board-event-flow-update'));
           return;
         }
 
@@ -254,6 +262,7 @@ export default function BoardPage() {
 
         if (message.type === 'notification.created') {
           refreshNotifications(board.id);
+          window.dispatchEvent(new Event('board-event-flow-update'));
         }
       },
     });
@@ -337,6 +346,7 @@ export default function BoardPage() {
           board_id: board.id,
           guest_id: identity.id,
           correlation_id: correlationId,
+          actor: buildActorSnapshot(identity),
         };
 
         if (activeTask?.id) {
@@ -358,7 +368,7 @@ export default function BoardPage() {
         setTaskPending(false);
       }
     },
-    [activeTask, board, handleCloseTaskModal, identity.id],
+    [activeTask, board, handleCloseTaskModal, identity],
   );
 
   const handleDeleteTask = useCallback(
@@ -397,6 +407,7 @@ export default function BoardPage() {
             version: task.version,
             guest_id: identity.id,
             correlation_id: generateCorrelationId(),
+            actor: buildActorSnapshot(identity),
           },
           board.id,
         );
@@ -406,7 +417,7 @@ export default function BoardPage() {
         refreshTasks(board.id).catch(() => null);
       }
     },
-    [board, identity.id, refreshTasks],
+    [board, identity, refreshTasks],
   );
 
   const handleCreateColumn = useCallback(

@@ -35,6 +35,17 @@ class TaskService:
     def touch_board(self, board_id: str) -> None:
         self.board_repo.update_last_activity(board_id)
 
+    def _build_event_payload(self, task: Task, actor: dict | None = None) -> dict:
+        payload = {"task": serialize_task(task)}
+        if actor:
+            payload["actor"] = {
+                "guest_id": actor.get("guest_id"),
+                "display_name": actor.get("display_name"),
+                "color": actor.get("color"),
+                "avatar_url": actor.get("avatar_url"),
+            }
+        return payload
+
     def create_task(self, payload: TaskCreate) -> Task:
         if not self.board_repo.get_by_id(payload.board_id):
             raise ValueError("Board not found")
@@ -65,7 +76,7 @@ class TaskService:
             TASK_CREATED,
             "task",
             task.id,
-            {"task": serialize_task(task)},
+            self._build_event_payload(task, payload.actor),
             board_id=task.board_id,
             correlation_id=payload.correlation_id,
             source="API",
@@ -79,7 +90,7 @@ class TaskService:
         if payload.version != task.version:
             raise VersionConflictError("Task version conflict")
 
-        changes = payload.model_dump(exclude_unset=True, exclude={"version"})
+        changes = payload.model_dump(exclude_unset=True, exclude={"version", "actor"})
         if not changes:
             return task
         changes["version"] = task.version + 1
@@ -90,7 +101,7 @@ class TaskService:
                 TASK_UPDATED,
                 "task",
                 task_id,
-                {"task": serialize_task(updated)},
+                self._build_event_payload(updated, payload.actor),
                 board_id=updated.board_id,
                 correlation_id=payload.correlation_id,
                 source="API",
@@ -168,7 +179,7 @@ class TaskService:
                 TASK_MOVED,
                 "task",
                 task_id,
-                {"task": serialize_task(updated)},
+                self._build_event_payload(updated, payload.actor),
                 board_id=updated.board_id,
                 correlation_id=payload.correlation_id,
                 source="API",

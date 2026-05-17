@@ -82,20 +82,35 @@ def get_board_events(public_board_id: str, session: SessionDep, limit: int = 50)
     
     events = DomainEventRepository(session).list_recent(board.id, limit=limit)
     
-    # Group by correlation_id while preserving order
+    # Group by correlation_id when present; otherwise keep single events isolated
     groups = []
     current_group = None
     
     for event in events:
+        event_key = event.correlation_id or f"event:{event.id}"
         if current_group is None:
-            current_group = {"correlation_id": event.correlation_id, "events": [ActivityEventRead.model_validate(event)]}
-        elif event.correlation_id == current_group["correlation_id"]:
+            current_group = {
+                "group_key": event_key,
+                "correlation_id": event.correlation_id,
+                "events": [ActivityEventRead.model_validate(event)],
+            }
+        elif event_key == current_group["group_key"]:
             current_group["events"].append(ActivityEventRead.model_validate(event))
         else:
-            groups.append(ActivityGroupRead(**current_group))
-            current_group = {"correlation_id": event.correlation_id, "events": [ActivityEventRead.model_validate(event)]}
+            groups.append(ActivityGroupRead(
+                correlation_id=current_group["correlation_id"],
+                events=current_group["events"],
+            ))
+            current_group = {
+                "group_key": event_key,
+                "correlation_id": event.correlation_id,
+                "events": [ActivityEventRead.model_validate(event)],
+            }
             
     if current_group:
-        groups.append(ActivityGroupRead(**current_group))
+        groups.append(ActivityGroupRead(
+            correlation_id=current_group["correlation_id"],
+            events=current_group["events"],
+        ))
         
     return groups

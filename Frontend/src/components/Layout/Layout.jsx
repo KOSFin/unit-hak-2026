@@ -119,13 +119,6 @@ export default function Layout({
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.boardMetaButton} onClick={() => setShareOpen(true)}>
-            <span className={styles.boardMetaText}>
-              <span className={styles.boardMetaLabel}>Board link</span>
-              <span className={styles.boardMetaValue}>Share workspace</span>
-            </span>
-          </button>
-
           {showOnlineControl && (
              <div className={styles.onlineWrap} ref={onlineRef}>
                <button
