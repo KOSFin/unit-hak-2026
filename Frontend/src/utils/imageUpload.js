@@ -63,7 +63,7 @@ export async function compressImageBeforeUpload(
     let blob;
     try {
       blob = await canvasToBlob(canvas, mimeType, quality);
-    } catch (_webpError) {
+    } catch {
       blob = await canvasToBlob(canvas, 'image/jpeg', quality);
     }
 
@@ -77,7 +77,7 @@ export async function compressImageBeforeUpload(
       type: blob.type,
       lastModified: Date.now(),
     });
-  } catch (_error) {
+  } catch {
     return file;
   }
 }

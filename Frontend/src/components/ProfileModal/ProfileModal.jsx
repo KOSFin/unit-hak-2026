@@ -22,7 +22,7 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
     try {
       const res = await uploadImage(file);
       setAvatarUrl(res.url);
-    } catch (err) {
+    } catch {
       alert("Failed to upload avatar");
     } finally {
       setPending(false);
@@ -45,7 +45,7 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
         color: profile.color ?? identity.color,
       });
       onUpdate(updated);
-    } catch (err) {
+    } catch {
       alert("Failed to save profile");
     } finally {
       setPending(false);

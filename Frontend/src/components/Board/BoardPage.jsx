@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { getBoard, updateBoard } from '../../api/boardsApi';
@@ -21,6 +21,20 @@ import TaskModal from '../TaskModal/TaskModal';
 import Modal from '../Ui/Modal';
 import Board from './Board';
 import styles from './BoardPage.module.css';
+
+const PRIORITY_WEIGHT = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+};
+
+const DEFAULT_TASK_VIEW = {
+  searchQuery: '',
+  columnFilter: 'ALL',
+  priorityFilter: 'ALL',
+  sortMode: 'BOARD_ORDER',
+};
 
 function buildPresenceMaps(snapshot, currentGuestId) {
   const editingUsersMap = {};
@@ -88,8 +102,20 @@ export default function BoardPage() {
   const [editingUsersMap, setEditingUsersMap] = useState({});
   const [draggingUsersMap, setDraggingUsersMap] = useState({});
   const [realtimeStatus, setRealtimeStatus] = useState('idle');
+  const [taskView, setTaskView] = useState({
+    boardId: publicBoardId,
+    ...DEFAULT_TASK_VIEW,
+  });
 
   const socketRef = useRef(null);
+  const activeTaskView = taskView.boardId === publicBoardId
+    ? taskView
+    : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW };
+  const deferredSearchQuery = useDeferredValue(activeTaskView.searchQuery);
+  const activeColumnFilter =
+    activeTaskView.columnFilter !== 'ALL' && !columns.some((column) => column.id === activeTaskView.columnFilter)
+      ? 'ALL'
+      : activeTaskView.columnFilter;
 
   const refreshTasks = useCallback(async (boardId) => {
     const data = await getTasks(boardId);
@@ -177,8 +203,6 @@ export default function BoardPage() {
     if (!board) {
       return undefined;
     }
-
-    setRealtimeStatus('connecting');
 
     const sendPresenceJoin = (wsClient) => {
       wsClient.send(
@@ -413,7 +437,7 @@ export default function BoardPage() {
         );
         setTasks((current) => current.map((item) => (item.id === moved.id ? moved : item)));
         window.dispatchEvent(new Event('board-event-flow-update'));
-      } catch (_caughtError) {
+      } catch {
         refreshTasks(board.id).catch(() => null);
       }
     },
@@ -568,6 +592,78 @@ export default function BoardPage() {
     [board],
   );
 
+  const filteredTasks = useMemo(() => {
+    const searchNeedle = deferredSearchQuery.trim().toLowerCase();
+    const columnTitles = new Map(columns.map((column) => [column.id, column.title]));
+
+    const nextTasks = tasks.filter((task) => {
+      if (activeColumnFilter !== 'ALL' && task.column_id !== activeColumnFilter) {
+        return false;
+      }
+
+      if (activeTaskView.priorityFilter !== 'ALL' && task.priority !== activeTaskView.priorityFilter) {
+        return false;
+      }
+
+      if (!searchNeedle) {
+        return true;
+      }
+
+      const searchTarget = [
+        task.title,
+        task.description,
+        task.status,
+        columnTitles.get(task.column_id),
+        task.id.slice(0, 8),
+        ...(task.tags ?? []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchTarget.includes(searchNeedle);
+    });
+
+    if (activeTaskView.sortMode === 'BOARD_ORDER') {
+      return nextTasks;
+    }
+
+    return [...nextTasks].sort((left, right) => {
+      if (activeTaskView.sortMode === 'UPDATED_DESC') {
+        return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+      }
+
+      if (activeTaskView.sortMode === 'PRIORITY_DESC') {
+        const priorityDiff = PRIORITY_WEIGHT[left.priority] - PRIORITY_WEIGHT[right.priority];
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+        return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+      }
+
+      if (activeTaskView.sortMode === 'DEADLINE_ASC') {
+        const leftDeadline = left.deadline ? new Date(left.deadline).getTime() : Number.POSITIVE_INFINITY;
+        const rightDeadline = right.deadline ? new Date(right.deadline).getTime() : Number.POSITIVE_INFINITY;
+        if (leftDeadline !== rightDeadline) {
+          return leftDeadline - rightDeadline;
+        }
+        return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+      }
+
+      if (activeTaskView.sortMode === 'TITLE_ASC') {
+        return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' });
+      }
+
+      return 0;
+    });
+  }, [activeColumnFilter, activeTaskView.priorityFilter, activeTaskView.sortMode, columns, deferredSearchQuery, tasks]);
+
+  const taskViewActive =
+    activeTaskView.searchQuery.trim().length > 0 ||
+    activeColumnFilter !== 'ALL' ||
+    activeTaskView.priorityFilter !== 'ALL' ||
+    activeTaskView.sortMode !== 'BOARD_ORDER';
+
   if (loading) {
     return (
       <div className={styles.statePage}>
@@ -603,6 +699,7 @@ export default function BoardPage() {
     <Layout
       board={board}
       identity={identity}
+      columns={columns}
       onlineUsers={onlineUsers}
       realtimeStatus={realtimeStatus}
       onUpdateIdentity={(updated) => {
@@ -623,6 +720,47 @@ export default function BoardPage() {
       onToggleNotifications={() => setNotificationsOpen((current) => !current)}
       onCloseNotifications={() => setNotificationsOpen(false)}
       mainClassName={styles.layoutMain}
+      searchQuery={activeTaskView.searchQuery}
+      onSearchQueryChange={(value) =>
+        setTaskView((current) => ({
+          ...(current.boardId === publicBoardId ? current : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW }),
+          boardId: publicBoardId,
+          searchQuery: value,
+        }))
+      }
+      columnFilter={activeColumnFilter}
+      onColumnFilterChange={(value) =>
+        setTaskView((current) => ({
+          ...(current.boardId === publicBoardId ? current : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW }),
+          boardId: publicBoardId,
+          columnFilter: value,
+        }))
+      }
+      priorityFilter={activeTaskView.priorityFilter}
+      onPriorityFilterChange={(value) =>
+        setTaskView((current) => ({
+          ...(current.boardId === publicBoardId ? current : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW }),
+          boardId: publicBoardId,
+          priorityFilter: value,
+        }))
+      }
+      sortMode={activeTaskView.sortMode}
+      onSortModeChange={(value) =>
+        setTaskView((current) => ({
+          ...(current.boardId === publicBoardId ? current : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW }),
+          boardId: publicBoardId,
+          sortMode: value,
+        }))
+      }
+      onResetTaskView={() => {
+        setTaskView({
+          boardId: publicBoardId,
+          ...DEFAULT_TASK_VIEW,
+        });
+      }}
+      visibleTaskCount={filteredTasks.length}
+      totalTaskCount={tasks.length}
+      taskViewActive={taskViewActive}
       onMarkNotificationRead={async (notificationId) => {
         if (!board) {
           return;
@@ -648,7 +786,7 @@ export default function BoardPage() {
         <div className={styles.boardShell}>
           <Board
             columns={columns}
-            tasks={tasks}
+            tasks={filteredTasks}
             onCreateTask={(columnId) => handleOpenTaskModal({ column_id: columnId })}
             onOpenTask={handleOpenTaskModal}
             onMoveTask={handleMoveTask}
@@ -656,6 +794,7 @@ export default function BoardPage() {
             draggingUsersMap={draggingUsersMap}
             onDragStartEmit={(taskId) => sendWsUpdate('drag.started', { active_task_id: taskId })}
             onDragEndEmit={() => sendWsUpdate('drag.ended')}
+            dragDisabled={taskViewActive}
           />
         </div>
 

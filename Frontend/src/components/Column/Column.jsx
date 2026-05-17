@@ -5,13 +5,22 @@ import Button from '../Ui/Button';
 import TaskCard from '../TaskCard/TaskCard';
 import styles from './Column.module.css';
 
-export default function Column({ column, tasks, onCreateTask, onOpenTask, editingUsersMap, draggingUsersMap }) {
+export default function Column({
+  column,
+  tasks,
+  onCreateTask,
+  onOpenTask,
+  editingUsersMap,
+  draggingUsersMap,
+  dragDisabled = false,
+}) {
   const { setNodeRef } = useDroppable({
     id: `column:${column.id}`,
     data: {
       type: 'column',
       columnId: column.id,
     },
+    disabled: dragDisabled,
   });
 
   return (
@@ -33,6 +42,7 @@ export default function Column({ column, tasks, onCreateTask, onOpenTask, editin
                onOpen={onOpenTask} 
                editingUsers={editingUsersMap?.[task.id]} 
                draggingUsers={draggingUsersMap?.[task.id]}
+               dragDisabled={dragDisabled}
             />
           ))}
         </SortableContext>

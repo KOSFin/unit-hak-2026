@@ -18,6 +18,11 @@
   border-color: var(--border-strong);
 }
 
+.cardStatic {
+  cursor: pointer;
+  touch-action: auto;
+}
+
 .dragging {
   opacity: 0.4;
   cursor: grabbing;

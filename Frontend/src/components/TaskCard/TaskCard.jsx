@@ -67,7 +67,7 @@ export function TaskCardPreview({ task }) {
   );
 }
 
-export default function TaskCard({ task, onOpen, editingUsers, draggingUsers }) {
+export default function TaskCard({ task, onOpen, editingUsers, draggingUsers, dragDisabled = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task:${task.id}`,
     data: {
@@ -75,6 +75,7 @@ export default function TaskCard({ task, onOpen, editingUsers, draggingUsers }) 
       taskId: task.id,
       columnId: task.column_id,
     },
+    disabled: dragDisabled,
   });
   
   const isEditing = editingUsers?.length > 0;
@@ -84,7 +85,7 @@ export default function TaskCard({ task, onOpen, editingUsers, draggingUsers }) 
     <button
       ref={setNodeRef}
       type="button"
-      className={`${styles.card} ${isDragging ? styles.dragging : ''} ${isEditing ? styles.cardEditing : ''} ${isOtherDragging ? styles.cardMoving : ''}`}
+      className={`${styles.card} ${dragDisabled ? styles.cardStatic : ''} ${isDragging ? styles.dragging : ''} ${isEditing ? styles.cardEditing : ''} ${isOtherDragging ? styles.cardMoving : ''}`}
       style={{
         transform: CSS.Translate.toString(transform),
         transition,

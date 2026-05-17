@@ -277,7 +277,7 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
   const groupedByActor = [];
   let currentActorGroup = null;
   
-  allClusters.forEach((cluster, idx) => {
+  allClusters.forEach((cluster) => {
     const actorId = cluster.actorId || 'system';
     
     if (currentActorGroup?.actorId === actorId && currentActorGroup?.actor?.guest_id === cluster.actor?.guest_id) {

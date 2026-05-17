@@ -23,6 +23,7 @@ export default function Board({
   draggingUsersMap = {},
   onDragStartEmit,
   onDragEndEmit,
+  dragDisabled = false,
 }) {
   const [activeId, setActiveId] = useState(null);
   const [localTasks, setLocalTasks] = useState(tasks);
@@ -169,7 +170,6 @@ export default function Board({
           }
       } else {
           targetIndex = columnTasks.findIndex((t) => t.id === overIdStr);
-          const activeIndexInColumn = columnTasks.findIndex((t) => t.id === activeIdStr);
 
           if (activeTaskCurrent.column_id !== targetColumnId) {
              const overRect = over.rect;
@@ -180,20 +180,6 @@ export default function Board({
                if (activeCenterY > overMidY) {
                  targetIndex += 1;
                }
-             }
-          } else {
-             if (activeIndexInColumn !== -1) {
-                if (targetIndex > activeIndexInColumn) {
-                     const overRect = over.rect;
-                     if (overRect && active.rect?.current?.translated) {
-                       const overMidY = overRect.top + overRect.height / 2;
-                       const activeCenterY =
-                         active.rect.current.translated.top + active.rect.current.translated.height / 2;
-                       if (activeCenterY > overMidY) {
-                       } else {
-                       }
-                     }
-                }
              }
           }
       }
@@ -252,6 +238,7 @@ export default function Board({
             onOpenTask={onOpenTask}
             editingUsersMap={editingUsersMap}
             draggingUsersMap={draggingUsersMap}
+            dragDisabled={dragDisabled}
           />
         ))}
       </div>
