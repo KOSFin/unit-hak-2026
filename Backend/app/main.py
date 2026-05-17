@@ -1,5 +1,4 @@
 import asyncio
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -25,8 +24,8 @@ async def lifespan(_app: FastAPI):
             seed_demo_data(session)
         finally:
             session.close()
-            
-    os.makedirs(settings.uploads_dir, exist_ok=True)
+
+    settings.uploads_filesystem_path().mkdir(parents=True, exist_ok=True)
 
     relay = RealtimeRelay(loop)
     relay.start()
@@ -52,9 +51,13 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(api_router)
-    
-    app.mount(f"/{settings.uploads_dir}", StaticFiles(directory=settings.uploads_dir), name="uploads")
-    
+
+    app.mount(
+        f"/{settings.uploads_url_path()}",
+        StaticFiles(directory=str(settings.uploads_filesystem_path())),
+        name="uploads",
+    )
+
     return app
 
 

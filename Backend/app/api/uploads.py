@@ -1,8 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
-from fastapi.responses import JSONResponse
 import uuid
 import os
-import shutil
 from pathlib import Path
 from PIL import Image
 
@@ -24,7 +22,7 @@ async def upload_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be an image")
     
     settings = get_settings()
-    uploads_dir = Path(settings.uploads_dir)
+    uploads_dir = settings.uploads_filesystem_path()
     uploads_dir.mkdir(parents=True, exist_ok=True)
     
     # Check file size (approximate by reading)
@@ -45,4 +43,4 @@ async def upload_image(file: UploadFile = File(...)):
     
     _compress_and_save_image(file_path)
     
-    return {"url": f"/{settings.uploads_dir}/{filename}"}
+    return {"url": f"/{settings.uploads_url_path()}/{filename}"}

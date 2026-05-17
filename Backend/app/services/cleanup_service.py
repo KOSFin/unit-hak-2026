@@ -18,6 +18,8 @@ class CleanupService:
         # Override inactive_days with what the board specifies, falling back to 3
         removed = 0
         now = datetime.now(UTC)
+        uploads_url_prefix = f"/{self.settings.uploads_url_path()}/"
+        uploads_dir = self.settings.uploads_filesystem_path()
         for board in self.board_repo.list_all():
             if board.archived_at:
                 continue
@@ -34,12 +36,12 @@ class CleanupService:
                     removed += 1
                     
                     # Also cleanup associated files
-                    if image_path and image_path.startswith(f"/{self.settings.uploads_dir}/"):
-                        filename = image_path.replace(f"/{self.settings.uploads_dir}/", "")
-                        filepath = os.path.join(self.settings.uploads_dir, filename)
-                        if os.path.exists(filepath):
+                    if image_path and image_path.startswith(uploads_url_prefix):
+                        filename = image_path.removeprefix(uploads_url_prefix)
+                        filepath = uploads_dir / filename
+                        if filepath.exists():
                             try:
-                                os.remove(filepath)
+                                filepath.unlink()
                             except OSError:
                                 pass
                                 

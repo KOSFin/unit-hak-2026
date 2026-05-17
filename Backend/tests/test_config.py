@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.core.config import Settings
 
 
@@ -52,6 +54,16 @@ def test_backend_base_url_and_rabbitmq_url_auto_fill():
 
     public = Settings(backend_public_url="https://api.flowboard.example.com/")
     assert public.backend_base_url() == "https://api.flowboard.example.com"
+
+
+def test_uploads_url_path_and_filesystem_path():
+    settings = Settings(uploads_dir="/uploads/")
+    assert settings.uploads_url_path() == "uploads"
+    assert settings.uploads_filesystem_path() == Path("uploads")
+
+    custom_path = Settings(uploads_dir="media", uploads_path="/app/uploads")
+    assert custom_path.uploads_url_path() == "media"
+    assert custom_path.uploads_filesystem_path() == Path("/app/uploads")
 
 
 def test_resolved_database_url_passthrough_branches(monkeypatch):

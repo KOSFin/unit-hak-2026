@@ -1,5 +1,6 @@
 from functools import lru_cache
 from importlib.util import find_spec
+from pathlib import Path
 from typing import Any
 
 from pydantic import AliasChoices, Field
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     backend_public_url: str | None = None
     backend_internal_port: int = 8000
     uploads_dir: str = "uploads"
+    uploads_path: str | None = None
     max_upload_size_bytes: int = 5 * 1024 * 1024
     default_board_retention_days: int = 3
     board_cleanup_interval_seconds: int = 3600
@@ -74,6 +76,15 @@ class Settings(BaseSettings):
         if self.backend_public_url:
             return self.backend_public_url.rstrip("/")
         return f"http://127.0.0.1:{self.backend_internal_port}"
+
+    def uploads_url_path(self) -> str:
+        normalized = self.uploads_dir.strip("/")
+        return normalized or "uploads"
+
+    def uploads_filesystem_path(self) -> Path:
+        if self.uploads_path:
+            return Path(self.uploads_path)
+        return Path(self.uploads_url_path())
 
     def model_post_init(self, __context: Any) -> None:
         if self.rabbitmq_url is None and self.rabbitmq_host:
