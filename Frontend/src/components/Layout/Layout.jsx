@@ -39,6 +39,7 @@ export default function Layout({
   onCloseNotifications,
   onMarkNotificationRead,
   onMarkAllNotificationsRead,
+  mainClassName = '',
 }) {
   const unreadCount = notifications.filter((notification) => !notification.read).length;
   const menuRef = useRef(null);
@@ -206,7 +207,7 @@ export default function Layout({
         </div>
       </header>
 
-      <main className={styles.main}>{children}</main>
+      <main className={`${styles.main} ${mainClassName}`.trim()}>{children}</main>
 
       {profileOpen && (
         <ProfileModal 

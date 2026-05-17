@@ -174,7 +174,7 @@ export default function BoardPage() {
       wsClient.send(
         JSON.stringify({
           type: 'presence.join',
-          board_id: board.public_id,
+          board_id: board.id,
           user: {
             guest_id: identity.id,
             display_name: identity.displayName,
@@ -286,7 +286,7 @@ export default function BoardPage() {
       socketRef.current.send(
         JSON.stringify({
           type,
-          board_id: board.public_id,
+          board_id: board.id,
           user: {
             guest_id: identity.id,
             display_name: identity.displayName,
@@ -580,6 +580,7 @@ export default function BoardPage() {
       pending={taskPending || adminPending}
       onToggleNotifications={() => setNotificationsOpen((current) => !current)}
       onCloseNotifications={() => setNotificationsOpen(false)}
+      mainClassName={styles.layoutMain}
       onMarkNotificationRead={async (notificationId) => {
         if (!board) {
           return;

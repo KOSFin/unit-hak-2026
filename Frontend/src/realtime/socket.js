@@ -1,14 +1,40 @@
 function normalizeSocketUrl(rawUrl, fallbackPath = '/ws') {
   if (rawUrl) {
-    return rawUrl;
+    if (/^wss?:\/\//i.test(rawUrl)) {
+      return rawUrl;
+    }
+    if (/^https?:\/\//i.test(rawUrl)) {
+      const url = new URL(rawUrl);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return url.toString();
+    }
+    if (rawUrl.startsWith('/')) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}${rawUrl}`;
+    }
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${rawUrl}`;
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}${fallbackPath}`;
 }
 
+function withSocketPath(rawUrl, nextPath) {
+  try {
+    const url = new URL(rawUrl);
+    url.pathname = nextPath;
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 function buildCandidateUrls() {
   const explicitUrl = import.meta.env.VITE_WS_URL;
-  const explicitCandidates = explicitUrl ? [explicitUrl] : [];
+  const normalizedExplicitUrl = explicitUrl ? normalizeSocketUrl(explicitUrl) : '';
+  const explicitCandidates = normalizedExplicitUrl
+    ? [normalizedExplicitUrl, withSocketPath(normalizedExplicitUrl, '/api/ws')]
+    : [];
   const fallbackCandidates = [normalizeSocketUrl('', '/ws'), normalizeSocketUrl('', '/api/ws')];
   return [...new Set([...explicitCandidates, ...fallbackCandidates])];
 }

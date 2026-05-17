@@ -3,11 +3,14 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 16px;
+  min-height: 0;
+  max-height: 100%;
   align-content: start;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.82);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(250, 250, 247, 0.92) 100%);
   box-shadow: var(--shadow-card);
 }
 
@@ -51,6 +54,7 @@
   align-content: start;
   min-height: 160px;
   padding: 4px;
+  overflow-y: auto;
   border-radius: 16px;
   transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -62,4 +66,14 @@
   color: var(--text-secondary);
   text-align: center;
   font-size: 0.85rem;
+}
+
+@media (max-width: 860px) {
+  .column {
+    max-height: none;
+  }
+
+  .list {
+    overflow-y: visible;
+  }
 }

@@ -2,6 +2,11 @@
   max-width: var(--page-width);
   margin: 0 auto;
   padding: 28px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow: hidden;
 }
 
 .header {
@@ -9,11 +14,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 22px;
   padding: 16px 20px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(22, 22, 22, 0.04), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 248, 244, 0.92) 100%);
   box-shadow: var(--shadow-card);
   animation: fade-in var(--transition-base);
 }
@@ -111,11 +117,17 @@
 
 .main {
   min-width: 0;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
 @media (max-width: 760px) {
   .page {
     padding: 16px;
+    min-height: auto;
+    overflow: visible;
   }
 
   .header {
@@ -126,6 +138,10 @@
   .actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .main {
+    overflow: visible;
   }
 
   .notificationsButton {
@@ -150,11 +166,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-right: 0.5rem;
-  padding: 0;
-  border: none;
-  background: transparent;
+  margin-right: 0.15rem;
+  padding: 8px 12px;
+  border: 1px solid rgba(223, 223, 215, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
   cursor: pointer;
+  box-shadow: 0 12px 24px rgba(20, 20, 18, 0.04);
 }
 
 .realtimeDot {
