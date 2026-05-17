@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.openapi import OPENAPI_TAGS, install_openapi
@@ -12,6 +14,8 @@ from app.core.database import Base, SessionLocal, engine
 from app.core.logging import setup_logging
 from app.realtime.broadcaster import RealtimeRelay
 from app.services.seed_service import seed_demo_data
+
+REDOC_JS_URL = "https://cdn.jsdelivr.net/npm/redoc@2/bundles/redoc.standalone.js"
 
 
 @asynccontextmanager
@@ -47,11 +51,20 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        redoc_url=None,
         openapi_url="/api/openapi.json",
         openapi_tags=OPENAPI_TAGS,
     )
     install_openapi(app, settings)
+
+    @app.get("/api/redoc", include_in_schema=False, response_class=HTMLResponse)
+    def redoc() -> HTMLResponse:
+        return get_redoc_html(
+            openapi_url=app.openapi_url,
+            title=f"{app.title} - ReDoc",
+            redoc_js_url=REDOC_JS_URL,
+            with_google_fonts=False,
+        )
 
     cors_origins = settings.cors_origins()
     if cors_origins:
