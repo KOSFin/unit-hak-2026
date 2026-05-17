@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useLocale } from '../../contexts/LocaleContext';
 import { getAvatarSurfaceStyle, getBoardCoverStyle } from '../../utils/imagePlaceholders';
@@ -284,7 +285,17 @@ export default function Layout({
           />
 
           <div className={styles.titleBlock}>
-            <p className={styles.serviceName}>FlowBoard</p>
+            <Link to="/" className={styles.serviceName} aria-label={`${t('flowboard', language)} — ${t('start', language)}`}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M4 10.8 12 4l8 6.8V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1v-9.2Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>FlowBoard</span>
+            </Link>
             <div className={styles.boardTitleRow}>
               <h1 className={styles.boardTitle}>{board?.name ?? t('untitledBoard', language)}</h1>
 

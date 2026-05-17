@@ -94,10 +94,29 @@
 }
 
 .serviceName {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
   font-size: 0.76rem;
   letter-spacing: 0.2em;
+  text-decoration: none;
   text-transform: uppercase;
+  transition:
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.serviceName:hover,
+.serviceName:focus-visible {
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.serviceName svg {
+  flex-shrink: 0;
+  margin-top: -1px;
 }
 
 .boardTitleRow {
