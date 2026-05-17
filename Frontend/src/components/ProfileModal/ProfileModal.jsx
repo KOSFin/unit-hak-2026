@@ -1,8 +1,10 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
+
+import { updateGuestProfile as updateGuestProfileRequest } from '../../api/guestApi';
+import { uploadImage } from '../../api/uploadsApi';
 import Modal from '../Ui/Modal';
 import Input from '../Ui/Input';
 import Button from '../Ui/Button';
-import { apiClient } from '../../api/client';
 import { updateGuestIdentity } from '../../utils/guest';
 import styles from './ProfileModal.module.css';
 
@@ -18,12 +20,8 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
 
     setPending(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await apiClient.post('/api/uploads', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setAvatarUrl(res.data.url);
+      const res = await uploadImage(file);
+      setAvatarUrl(res.url);
     } catch (err) {
       alert("Failed to upload avatar");
     } finally {
@@ -31,13 +29,27 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!displayName.trim()) return;
-    const updated = updateGuestIdentity({
-      displayName: displayName.trim(),
-      avatarUrl,
-    });
-    onUpdate(updated);
+    setPending(true);
+    try {
+      const profile = await updateGuestProfileRequest(identity.id, {
+        guest_id: identity.id,
+        display_name: displayName.trim(),
+        color: identity.color,
+        avatar_url: avatarUrl,
+      });
+      const updated = updateGuestIdentity({
+        displayName: profile.display_name,
+        avatarUrl: profile.avatar_url,
+        color: profile.color ?? identity.color,
+      });
+      onUpdate(updated);
+    } catch (err) {
+      alert("Failed to save profile");
+    } finally {
+      setPending(false);
+    }
   };
 
   return (

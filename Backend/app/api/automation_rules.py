@@ -16,9 +16,9 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 
 @router.get("", response_model=list[AutomationRuleRead])
-def list_rules(session: SessionDep) -> list[AutomationRuleRead]:
+def list_rules(session: SessionDep, board_id: str | None = None) -> list[AutomationRuleRead]:
     service = AutomationRuleService(session)
-    return [AutomationRuleRead.model_validate(rule) for rule in service.list_rules()]
+    return [AutomationRuleRead.model_validate(rule) for rule in service.list_rules(board_id=board_id)]
 
 
 @router.post("", response_model=AutomationRuleRead, status_code=status.HTTP_201_CREATED)

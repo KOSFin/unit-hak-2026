@@ -26,11 +26,11 @@ class NotificationService:
             notifications = [n for n in notifications if not n.read]
         return notifications[skip : skip + limit]
 
-    def mark_as_read(self, notification_id: str):
-        return self.repo.mark_read(notification_id)
+    def mark_as_read(self, notification_id: str, board_id: str | None = None):
+        return self.repo.mark_read(notification_id, board_id=board_id)
 
-    def mark_all_as_read(self) -> int:
-        return self.repo.mark_all_read()
+    def mark_all_as_read(self, board_id: str | None = None) -> int:
+        return self.repo.mark_all_read(board_id=board_id)
 
     def create_notification(
         self,
@@ -66,5 +66,5 @@ class NotificationService:
                 "read": notification.read,
                 "created_at": notification.created_at.isoformat(),
             },
-            "board_id": task.board_id if task else None,
+            "board_id": task.board_id if task else notification.board_id,
         }

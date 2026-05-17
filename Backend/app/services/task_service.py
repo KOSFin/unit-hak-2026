@@ -107,6 +107,8 @@ class TaskService:
         column = self.column_repo.get_by_id(payload.column_id)
         if not column:
             raise ValueError("Column not found")
+        if column.board_id != task.board_id:
+            raise ValueError("Column not found")
 
         source_column_id = task.column_id
         target_column_id = payload.column_id

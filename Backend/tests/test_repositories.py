@@ -64,11 +64,12 @@ def test_repositories_crud(db_session):
     assert rule_repo.update(rule.id, enabled=False).enabled is False
 
     one = notification_repo.create("One", "Message", "system", task.id)
-    notification_repo.create("Two", "Message", "system", None)
+    notification_repo.create("Two", "Message", "system", None, board_id=board.id)
     assert notification_repo.get_by_id(one.id) == one
     assert len(notification_repo.list_all()) == 2
     assert notification_repo.mark_read(one.id).read is True
     assert notification_repo.mark_all_read() == 1
+    assert notification_repo.mark_read(one.id, board_id="wrong-board") is None
 
     incoming = incoming_repo.create("ext-1", {"title": "Task"}, IncomingTaskStatus.RECEIVED)
     assert incoming_repo.get_by_id(incoming.id) == incoming

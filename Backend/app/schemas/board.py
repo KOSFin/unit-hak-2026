@@ -8,6 +8,7 @@ from app.schemas.column import ColumnRead
 class BoardRead(BaseModel):
     id: str
     public_id: str
+    board_url: str | None = None
     name: str
     image_path: str | None = None
     retention_days: int
@@ -27,6 +28,7 @@ class BoardDetail(BoardRead):
 class BoardCreate(BaseModel):
     name: str
     retention_days: int = 3
+    image_path: str | None = None
 
 
 class BoardCreatedResponse(BoardRead):

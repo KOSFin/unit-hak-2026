@@ -14,6 +14,114 @@ const SOURCE_COLORS = {
   SYSTEM: 'neutral',
 };
 
+function describeEvent(event) {
+  const task = event.payload?.task;
+  const notification = event.payload?.notification;
+  const incomingTask = event.payload?.incoming_task;
+  const rule = event.payload?.rule;
+  const message = event.payload?.message;
+
+  if (event.type === 'TASK_CREATED') {
+    return {
+      title: 'Task created',
+      message: task?.title ? `"${task.title}" entered the board.` : 'A new task entered the board.',
+      guestId: task?.guest_id,
+    };
+  }
+
+  if (event.type === 'TASK_UPDATED') {
+    return {
+      title: 'Task updated',
+      message: task?.title ? `"${task.title}" was edited.` : 'A task was edited.',
+      guestId: task?.guest_id,
+    };
+  }
+
+  if (event.type === 'TASK_MOVED') {
+    return {
+      title: 'Task moved',
+      message: task?.title
+        ? `"${task.title}" moved to ${task.status || 'a new column'}.`
+        : 'A task changed column.',
+      guestId: task?.guest_id,
+    };
+  }
+
+  if (event.type === 'TASK_DELETED') {
+    return {
+      title: 'Task removed',
+      message: task?.title ? `"${task.title}" left the board.` : 'A task was removed.',
+      guestId: task?.guest_id,
+    };
+  }
+
+  if (event.type === 'NOTIFICATION_CREATED') {
+    return {
+      title: 'Notification delivered',
+      message: notification?.message || notification?.title || 'A new notification was generated.',
+    };
+  }
+
+  if (event.type === 'INCOMING_TASK_RECEIVED') {
+    return {
+      title: 'Incoming task received',
+      message: incomingTask?.external_id
+        ? `Payload ${incomingTask.external_id} entered the queue.`
+        : 'A payload entered the queue.',
+    };
+  }
+
+  if (event.type === 'INCOMING_TASK_VALIDATED') {
+    return {
+      title: 'Incoming task validated',
+      message: 'The payload passed validation and is ready for worker processing.',
+    };
+  }
+
+  if (event.type === 'INCOMING_TASK_PROCESSED') {
+    return {
+      title: 'Incoming task processed',
+      message: task?.title
+        ? `Worker turned the payload into "${task.title}".`
+        : 'Worker created a task from the payload.',
+    };
+  }
+
+  if (event.type === 'AUTOMATION_TRIGGERED') {
+    return {
+      title: 'Automation triggered',
+      message: message || 'A rule reacted to the latest board event.',
+    };
+  }
+
+  if (event.type === 'AUTOMATION_RULE_CREATED') {
+    return {
+      title: 'Rule created',
+      message: rule?.name ? `"${rule.name}" is now active for this board.` : 'A rule was created.',
+    };
+  }
+
+  if (event.type === 'AUTOMATION_RULE_UPDATED') {
+    return {
+      title: 'Rule updated',
+      message: rule?.name ? `"${rule.name}" changed its behavior.` : 'A rule was updated.',
+    };
+  }
+
+  if (event.type === 'AUTOMATION_RULE_DELETED') {
+    return {
+      title: 'Rule deleted',
+      message: rule?.name ? `"${rule.name}" was removed.` : 'A rule was deleted.',
+    };
+  }
+
+  return {
+    title: event.type.replaceAll('_', ' '),
+    message: message || 'System activity recorded for this board.',
+    guestId: task?.guest_id,
+  };
+}
+
 export default function EventFlow({ boardId, onlineUsers = [] }) {
   const [groups, setGroups] = useState([]);
   const containerRef = useRef(null);
@@ -29,15 +137,6 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
     }
     load();
     
-    // We would ideally listen to WS here to update events live,
-    // but the backend WS broadcasts standard `event` messages.
-    // For MVP, polling or explicit live updates could be hooked up, 
-    // but for now, we'll just fetch initially.
-    
-    const handleWsEvent = (e) => {
-        // Here we could intercept window events if we re-emit from socket
-    };
-    
     window.addEventListener('board-event-flow-update', load);
     return () => window.removeEventListener('board-event-flow-update', load);
   }, [boardId]);
@@ -46,6 +145,7 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
     <div className={styles.panel}>
       <div className={styles.header}>
         <h2 className={styles.title}>Activity Flow</h2>
+        <p className={styles.subtitle}>Live board activity, grouped by operation.</p>
       </div>
       <div className={styles.content} ref={containerRef}>
         {groups.length === 0 ? (
@@ -53,9 +153,15 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
         ) : (
           groups.map((group, idx) => (
             <div key={group.correlation_id || `group-${idx}`} className={styles.group}>
+              {group.correlation_id ? (
+                <div className={styles.groupHeader}>
+                  <span>Operation</span>
+                  <code>{group.correlation_id.slice(0, 8)}</code>
+                </div>
+              ) : null}
               {group.events.map((event, eIdx) => {
-                 // Try to map guest_id to online user
-                 const guestId = event.payload?.task?.guest_id || event.payload?.guest_id;
+                 const details = describeEvent(event);
+                 const guestId = details.guestId || event.payload?.guest_id;
                  const user = onlineUsers.find(u => u.guest_id === guestId);
                  
                  return (
@@ -72,10 +178,15 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                             {event.source || 'SYSTEM'}
                           </Badge>
                           <span className={styles.time}>
-                             {new Date(event.created_at).toLocaleTimeString()}
+                             {new Date(event.created_at).toLocaleTimeString([], {
+                               hour: '2-digit',
+                               minute: '2-digit',
+                               second: '2-digit',
+                             })}
                           </span>
                        </div>
-                       <div className={styles.eventTitle}>{event.type}</div>
+                       <div className={styles.eventTitle}>{details.title}</div>
+                       <p className={styles.eventMessage}>{details.message}</p>
                        
                        {user && (
                           <div className={styles.userStamp}>

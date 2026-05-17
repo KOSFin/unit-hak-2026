@@ -19,4 +19,20 @@
   --transition-fast: 160ms ease;
   --transition-base: 220ms ease;
   --page-width: 1480px;
+
+  /* Legacy aliases kept so older CSS Modules continue to render correctly. */
+  --color-bg: var(--background);
+  --color-bg-dimmed: var(--surface-muted);
+  --color-border: var(--border);
+  --color-text: var(--text-primary);
+  --color-text-dimmed: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-warning-subtle: rgba(127, 93, 19, 0.08);
+  --color-danger-subtle: rgba(143, 58, 49, 0.08);
+  --radius-lg: var(--radius-panel);
+  --radius-md: var(--radius-card);
+  --radius-sm: 12px;
+  --shadow-sm: var(--shadow-card);
 }

@@ -60,6 +60,8 @@ class IncomingTaskService:
             status=IncomingTaskStatus.RECEIVED,
             board_id=payload.board_id,
         )
+        if incoming.board_id:
+            self.board_repo.update_last_activity(incoming.board_id)
         self.event_service.record_event(
             INCOMING_TASK_RECEIVED,
             "incoming_task",

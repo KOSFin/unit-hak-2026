@@ -96,12 +96,19 @@ def main() -> int:
 
     try:
         settings = get_settings()
-        cleanup_service = CleanupService(SessionLocal())
         stop_event = threading.Event()
 
         def cleanup_loop() -> None:
             while not stop_event.wait(settings.board_cleanup_interval_seconds):
-                cleanup_service.cleanup_inactive_boards(settings.default_board_retention_days)
+                session = SessionLocal()
+                try:
+                    removed = CleanupService(session).cleanup_inactive_boards(
+                        settings.default_board_retention_days
+                    )
+                    if removed:
+                        logger.info("Cleanup removed %s inactive boards", removed)
+                finally:
+                    session.close()
 
         cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
         cleanup_thread.start()

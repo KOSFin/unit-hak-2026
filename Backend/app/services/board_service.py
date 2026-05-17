@@ -44,7 +44,7 @@ class BoardService:
             name=payload.name,
             public_id=public_id,
             retention_days=retention_days,
-            image_path=image_path,
+            image_path=image_path or payload.image_path,
         )
         for column in DEFAULT_COLUMNS:
             self.column_repo.create(board.id, column["title"], column["position"], column["is_default"])

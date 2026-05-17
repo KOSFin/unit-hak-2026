@@ -6,6 +6,7 @@ router = APIRouter(tags=["realtime"])
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
+    joined_board_ids: set[str] = set()
     try:
         while True:
             try:
@@ -16,6 +17,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 if not board_id:
                     continue
                 if event_type == "presence.join":
+                    joined_board_ids.add(board_id)
                     snapshot = await manager.connect(board_id, websocket, user)
                     await manager.broadcast(board_id, {"type": "presence.snapshot", "payload": snapshot})
                 elif event_type == "presence.update":
@@ -38,6 +40,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        for board_id in list(manager.boards.keys()):
+        for board_id in joined_board_ids or list(manager.boards.keys()):
             snapshot = manager.disconnect(board_id, websocket)
-            # await manager.broadcast(board_id, {"type": "presence.updated", "payload": snapshot}) # can't await in finally if loop is closed, ignoring for now or relying on other tasks
+            await manager.broadcast(board_id, {"type": "presence.updated", "payload": snapshot})

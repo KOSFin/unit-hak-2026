@@ -6,6 +6,22 @@ import ProfileModal from '../ProfileModal/ProfileModal';
 import ShareModal from '../ShareModal/ShareModal';
 import styles from './Layout.module.css';
 
+function formatLastActivity(value) {
+  if (!value) {
+    return 'Temporary board';
+  }
+  return `Last activity ${new Date(value).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+function getInitial(name = 'Guest') {
+  return name.trim().charAt(0).toUpperCase() || 'G';
+}
+
 export default function Layout({
   board,
   identity,
@@ -25,17 +41,24 @@ export default function Layout({
 }) {
   const unreadCount = notifications.filter((notification) => !notification.read).length;
   const menuRef = useRef(null);
+  const onlineRef = useRef(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [onlineOpen, setOnlineOpen] = useState(false);
 
   useEffect(() => {
-    if (!notificationsOpen) return;
+    if (!notificationsOpen && !onlineOpen) return;
     const handleOutsideClick = (event) => {
       if (!menuRef.current || menuRef.current.contains(event.target)) return;
+      if (onlineRef.current && onlineRef.current.contains(event.target)) return;
       onCloseNotifications();
+      setOnlineOpen(false);
     };
     const handleEscape = (event) => {
-      if (event.key === 'Escape') onCloseNotifications();
+      if (event.key === 'Escape') {
+        onCloseNotifications();
+        setOnlineOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     document.addEventListener('keydown', handleEscape);
@@ -43,7 +66,7 @@ export default function Layout({
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [notificationsOpen, onCloseNotifications]);
+  }, [notificationsOpen, onlineOpen, onCloseNotifications]);
 
   const displayedUsers = onlineUsers.slice(0, 3);
   const extraUsers = Math.max(0, onlineUsers.length - 3);
@@ -55,19 +78,27 @@ export default function Layout({
           {board?.image_path ? (
             <img src={board.image_path} alt="Board Logo" className={styles.logoImg} />
           ) : (
-            <div className={styles.logo}>FB</div>
+            <div className={styles.logo}>{getInitial(board?.name || 'FlowBoard')}</div>
           )}
-          <div>
+          <div className={styles.titleBlock}>
             <h1 className={styles.title}>{board?.name ?? 'FlowBoard'}</h1>
             <p className={styles.eyebrow}>
-              Temporary board &middot; expires after {board?.expires_after_days ?? 3} inactive days
+              Temporary board · expires after {board?.expires_after_days ?? 3} inactive days
+            </p>
+            <p className={styles.secondary}>
+              {formatLastActivity(board?.last_activity_at)}
             </p>
           </div>
         </div>
 
         <div className={styles.actions}>
           {onlineUsers.length > 0 && (
-             <div className={styles.onlineGroup}>
+             <div className={styles.onlineWrap} ref={onlineRef}>
+               <button
+                 type="button"
+                 className={styles.onlineGroup}
+                 onClick={() => setOnlineOpen((current) => !current)}
+               >
                {displayedUsers.map(user => (
                  <div 
                    key={user.guest_id} 
@@ -75,12 +106,42 @@ export default function Layout({
                    style={{ backgroundColor: user.color, backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none', backgroundSize: 'cover' }}
                    title={user.display_name}
                  >
-                   {!user.avatar_url && user.display_name.charAt(0).toUpperCase()}
+                   {!user.avatar_url && getInitial(user.display_name)}
                  </div>
                ))}
                {extraUsers > 0 && (
                  <div className={styles.onlineExtra}>+{extraUsers}</div>
                )}
+               </button>
+               {onlineOpen ? (
+                 <div className={styles.onlineDropdown}>
+                   <div className={styles.onlineDropdownHeader}>
+                     <strong>{onlineUsers.length} online</strong>
+                   </div>
+                   <div className={styles.onlineList}>
+                     {onlineUsers.map((user) => (
+                       <div key={user.guest_id} className={styles.onlineRow}>
+                         <div
+                           className={styles.onlineAvatarLarge}
+                           style={{
+                             backgroundColor: user.color,
+                             backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none',
+                             backgroundSize: 'cover',
+                           }}
+                         >
+                           {!user.avatar_url && getInitial(user.display_name)}
+                         </div>
+                         <div>
+                           <div className={styles.onlineName}>{user.display_name}</div>
+                           <div className={styles.onlineMeta}>
+                             {user.guest_id === identity?.id ? 'You' : 'Guest collaborator'}
+                           </div>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               ) : null}
              </div>
           )}
           
@@ -120,7 +181,7 @@ export default function Layout({
              style={{ backgroundColor: identity?.color, backgroundImage: identity?.avatarUrl ? `url(${identity.avatarUrl})` : 'none', backgroundSize: 'cover' }}
              onClick={() => setProfileOpen(true)}
           >
-             {!identity?.avatarUrl && identity?.displayName?.charAt(0).toUpperCase()}
+             {!identity?.avatarUrl && getInitial(identity?.displayName)}
           </div>
         </div>
       </header>

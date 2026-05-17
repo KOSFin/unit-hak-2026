@@ -38,15 +38,19 @@ def get_notifications(
 def mark_notification_as_read(
     notification_id: str,
     session: SessionDep,
+    board_id: str | None = None,
 ) -> NotificationResponse:
     service = NotificationService(session)
-    notification = service.mark_as_read(notification_id)
+    notification = service.mark_as_read(notification_id, board_id=board_id)
     if not notification:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
     return NotificationResponse.model_validate(notification)
 
 
 @router.post("/mark-all-read", response_model=MarkAllNotificationsReadResponse)
-def mark_all_as_read(session: SessionDep) -> MarkAllNotificationsReadResponse:
+def mark_all_as_read(
+    session: SessionDep,
+    board_id: str | None = None,
+) -> MarkAllNotificationsReadResponse:
     service = NotificationService(session)
-    return MarkAllNotificationsReadResponse(updated=service.mark_all_as_read())
+    return MarkAllNotificationsReadResponse(updated=service.mark_all_as_read(board_id=board_id))

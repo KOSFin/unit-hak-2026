@@ -55,7 +55,7 @@ class AutomationService:
         if not task:
             return None
 
-        rules = [rule for rule in self.rule_repo.list_all() if rule.enabled]
+        rules = [rule for rule in self.rule_repo.list_all(task.board_id) if rule.enabled]
         if not rules:
             return task
 
@@ -113,6 +113,7 @@ class AutomationService:
                     message=effect.message,
                     type="automation",
                     task_id=updated.id,
+                    board_id=updated.board_id,
                 )
                 self.event_service.record_event(
                     AUTOMATION_TRIGGERED,

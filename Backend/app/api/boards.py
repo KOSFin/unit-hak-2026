@@ -19,6 +19,7 @@ def serialize_board_detail(service: BoardService, board) -> BoardDetail:
     return BoardDetail(
         id=board.id,
         public_id=board.public_id,
+        board_url=service.get_board_url(board.public_id),
         name=board.name,
         image_path=board.image_path,
         retention_days=board.retention_days,

@@ -13,6 +13,9 @@ def test_mock_and_rabbitmq_publisher(monkeypatch):
         type=TASK_CREATED,
         entity_type="task",
         entity_id="task-1",
+        board_id="board-1",
+        correlation_id="corr-1",
+        source="API",
         payload={"task": {"id": "task-1"}},
         created_at=datetime.now(UTC),
     )
@@ -246,3 +249,27 @@ def test_activity_event_read_from_attributes():
     assert dto.id == "event-3"
     assert dto.board_id == "board-1"
     assert dto.source == "api"
+
+
+def test_realtime_message_builder_keeps_board_context():
+    from app.realtime.broadcaster import build_realtime_message
+    from app.schemas.event import DomainEventSchema
+
+    event = DomainEventSchema(
+        id="event-4",
+        type=TASK_CREATED,
+        entity_type="task",
+        entity_id="task-4",
+        board_id="board-42",
+        correlation_id="corr-42",
+        source="API",
+        payload={"task": {"id": "task-4"}},
+        created_at=datetime.now(UTC),
+    )
+
+    message = build_realtime_message(event)
+
+    assert message.type == "task.created"
+    assert message.boardId == "board-42"
+    assert message.correlationId == "corr-42"
+    assert message.source == "API"

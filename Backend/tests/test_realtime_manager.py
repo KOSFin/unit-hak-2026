@@ -52,3 +52,29 @@ async def test_disconnect() -> None:
     snapshot = manager.disconnect("board-1", ws)
     assert len(snapshot["users"]) == 0
     assert len(snapshot["editing"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_same_guest_multiple_tabs_and_board_isolation() -> None:
+    manager = ConnectionManager()
+    ws_one = AsyncMock(spec=WebSocket)
+    ws_two = AsyncMock(spec=WebSocket)
+    ws_three = AsyncMock(spec=WebSocket)
+
+    first = await manager.connect("board-1", ws_one, {"guest_id": "g1", "display_name": "Guest 1"})
+    second = await manager.connect("board-1", ws_two, {"guest_id": "g1", "display_name": "Guest 1"})
+    third = await manager.connect("board-2", ws_three, {"guest_id": "g2", "display_name": "Guest 2"})
+
+    assert len(first["users"]) == 1
+    assert len(second["users"]) == 1
+    assert second["users"][0]["active_connections"] == 2
+    assert len(third["users"]) == 1
+    assert third["users"][0]["guest_id"] == "g2"
+
+    after_first_disconnect = manager.disconnect("board-1", ws_one)
+    assert len(after_first_disconnect["users"]) == 1
+    assert after_first_disconnect["users"][0]["active_connections"] == 1
+
+    after_second_disconnect = manager.disconnect("board-1", ws_two)
+    assert after_second_disconnect["users"] == []
+    assert manager.snapshot("board-2")["users"][0]["guest_id"] == "g2"

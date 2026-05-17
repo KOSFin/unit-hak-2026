@@ -193,6 +193,74 @@ def test_process_event_and_worker_main(monkeypatch):
     assert main() == 1
 
 
+def test_worker_main_runs_cleanup_loop(monkeypatch):
+    calls = []
+
+    class SessionStub:
+        def close(self):
+            calls.append("close")
+
+    class CleanupStub:
+        def __init__(self, _session):
+            calls.append("init")
+
+        def cleanup_inactive_boards(self, inactive_days):
+            calls.append(("cleanup", inactive_days))
+            return 2
+
+    class ConsumerStub:
+        def __init__(self, _queue_name):
+            return None
+
+        def connect(self):
+            return True
+
+        def consume(self, _callback):
+            return True
+
+        def close(self):
+            calls.append("consumer-close")
+
+    class EventStub:
+        def __init__(self):
+            self.wait_calls = 0
+
+        def wait(self, _timeout):
+            self.wait_calls += 1
+            return self.wait_calls > 1
+
+        def set(self):
+            calls.append("stop")
+
+    class ThreadStub:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+        def join(self, timeout=None):
+            return timeout
+
+    settings = type(
+        "Settings",
+        (),
+        {"board_cleanup_interval_seconds": 0, "default_board_retention_days": 3},
+    )()
+
+    monkeypatch.setattr("app.worker.main.RabbitMQConsumer", ConsumerStub)
+    monkeypatch.setattr("app.worker.main.get_settings", lambda: settings)
+    monkeypatch.setattr("app.worker.main.CleanupService", CleanupStub)
+    monkeypatch.setattr("app.worker.main.SessionLocal", lambda: SessionStub())
+    monkeypatch.setattr("app.worker.main.threading.Event", EventStub)
+    monkeypatch.setattr("app.worker.main.threading.Thread", ThreadStub)
+
+    assert main() == 0
+    assert ("cleanup", 3) in calls
+    assert "close" in calls
+
+
 def test_worker_entrypoint(monkeypatch):
     monkeypatch.setattr("app.worker.main.main", lambda: 0)
     with pytest.raises(SystemExit) as exc:

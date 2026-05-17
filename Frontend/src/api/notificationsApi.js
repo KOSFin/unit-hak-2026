@@ -6,16 +6,15 @@ export async function getNotifications(boardId) {
 }
 
 export async function markNotificationRead(notificationId, boardId) {
-  const { data } = await apiClient.post(`/api/notifications/${notificationId}/read`, null, { params: boardParams(boardId) });
+  const { data } = await apiClient.patch(`/api/notifications/${notificationId}/read`, null, {
+    params: boardParams(boardId),
+  });
   return data;
 }
 
 export async function markAllNotificationsRead(boardId) {
-  const { data } = await apiClient.post('/api/notifications/read-all', null, { params: boardParams(boardId) });
-  return data;
-}
-
-export async function testNotification(payload) {
-  const { data } = await apiClient.post('/api/notifications/test', payload);
+  const { data } = await apiClient.post('/api/notifications/mark-all-read', null, {
+    params: boardParams(boardId),
+  });
   return data;
 }

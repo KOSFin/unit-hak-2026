@@ -30,6 +30,39 @@ async def test_incoming_tasks_api(async_client):
     assert len(listed.json()) == 1
 
 
+@pytest.mark.anyio
+async def test_incoming_tasks_are_filtered_by_board(async_client):
+    board_a = await async_client.post("/api/boards", json={"name": "Board A", "retention_days": 3})
+    board_b = await async_client.post("/api/boards", json={"name": "Board B", "retention_days": 3})
+
+    created_a = await async_client.post(
+        "/api/incoming-tasks",
+        json={
+            "external_id": "board-a-incoming",
+            "board_id": board_a.json()["id"],
+            "raw_payload": {"title": "A"},
+        },
+    )
+    created_b = await async_client.post(
+        "/api/incoming-tasks",
+        json={
+            "external_id": "board-b-incoming",
+            "board_id": board_b.json()["id"],
+            "raw_payload": {"title": "B"},
+        },
+    )
+
+    assert created_a.status_code == 201
+    assert created_b.status_code == 201
+
+    listed_a = await async_client.get(
+        "/api/incoming-tasks",
+        params={"board_id": board_a.json()["id"]},
+    )
+    assert listed_a.status_code == 200
+    assert [item["external_id"] for item in listed_a.json()] == ["board-a-incoming"]
+
+
 def test_process_incoming_tasks(db_session, seeded_board):
     service = IncomingTaskService(db_session)
     valid = service.create_task(

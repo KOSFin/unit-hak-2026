@@ -80,11 +80,17 @@
 
 .comingSoon {
   margin-top: 0.5rem;
+  display: grid;
+  gap: 0.75rem;
   font-size: 0.8rem;
   color: var(--color-warning);
   background: var(--color-warning-subtle, #fff3cd);
-  padding: 0.5rem;
+  padding: 0.75rem;
   border-radius: var(--radius-sm);
+}
+
+.comingSoon p {
+  margin: 0;
 }
 
 .error {

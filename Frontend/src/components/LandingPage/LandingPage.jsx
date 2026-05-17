@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import { createBoard } from '../../api/boardsApi';
-import { apiClient } from '../../api/client';
+import { getBoardPublicUrl, resolveAppUrl } from '../../api/client';
+import { uploadImage } from '../../api/uploadsApi';
 import Button from '../Ui/Button';
 import Input from '../Ui/Input';
 import Select from '../Ui/Select';
@@ -16,14 +18,15 @@ export default function LandingPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
   const [createdBoard, setCreatedBoard] = useState(null);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
 
   const RETENTION_OPTIONS = [
-    { value: '3', label: '3 days (No account required)' },
-    { value: '7', label: '7 days', disabled: true },
-    { value: '30', label: '30 days', disabled: true },
-    { value: '365', label: '1 year', disabled: true },
-    { value: 'forever', label: 'Forever', disabled: true },
+    { value: '3', label: '3 days (MVP temporary board)' },
+    { value: '7', label: '7 days' },
+    { value: '30', label: '30 days' },
+    { value: '365', label: '1 year' },
+    { value: 'forever', label: 'Do not delete' },
   ];
 
   const handleImageChange = (e) => {
@@ -54,12 +57,8 @@ export default function LandingPage() {
     try {
       let imagePath = null;
       if (imageFile) {
-        const formData = new FormData();
-        formData.append('file', imageFile);
-        const uploadRes = await apiClient.post('/api/uploads', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        imagePath = uploadRes.data.url;
+        const uploadRes = await uploadImage(imageFile);
+        imagePath = uploadRes.url;
       }
 
       const board = await createBoard({
@@ -76,10 +75,14 @@ export default function LandingPage() {
     }
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(window.location.origin + createdBoard.board_url);
-    // basic visual feedback
-    alert("Copied!");
+  const boardUrl = createdBoard
+    ? resolveAppUrl(createdBoard.board_url || getBoardPublicUrl(createdBoard.public_id))
+    : '';
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(boardUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
   };
 
   if (createdBoard) {
@@ -89,14 +92,13 @@ export default function LandingPage() {
           <h1 className={styles.title}>Board Created</h1>
           <p className={styles.subtitle}>Your MVP board is ready.</p>
           <div className={styles.linkBox}>
-            <input 
-              readOnly 
-              value={window.location.origin + createdBoard.board_url} 
-              className={styles.linkInput} 
-            />
-            <Button onClick={copyLink}>Copy link</Button>
+            <input readOnly value={boardUrl} className={styles.linkInput} />
+            <Button onClick={copyLink}>{copied ? 'Copied' : 'Copy link'}</Button>
           </div>
-          <Button variant="primary" className={styles.openBtn} onClick={() => navigate(`/board/${createdBoard.public_id}`)}>
+          <Button
+            className={styles.openBtn}
+            onClick={() => navigate(`/board/${createdBoard.public_id}`)}
+          >
             Open Board
           </Button>
         </div>
@@ -146,18 +148,23 @@ export default function LandingPage() {
             onChange={(e) => setRetention(e.target.value)}
           >
             {RETENTION_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+              <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
           </Select>
           {retention !== '3' && (
-             <div className={styles.comingSoon}>Long-term boards require an account. Authentication is coming soon.</div>
+             <div className={styles.comingSoon}>
+               <p>Long-term boards require an account. Authentication is coming soon.</p>
+               <Button variant="secondary" size="sm" disabled>
+                 Sign in soon
+               </Button>
+             </div>
           )}
         </div>
 
-        <Button type="submit" disabled={pending} className={styles.submitBtn}>
-          {pending ? 'Creating...' : 'Create Board'}
+        <Button type="submit" disabled={pending || retention !== '3'} className={styles.submitBtn}>
+          {pending ? 'Creating...' : retention === '3' ? 'Create Board' : '3-day MVP only'}
         </Button>
       </form>
     </div>

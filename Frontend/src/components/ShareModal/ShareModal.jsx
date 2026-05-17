@@ -1,13 +1,18 @@
+import { useState } from 'react';
+
+import { getBoardPublicUrl, resolveAppUrl } from '../../api/client';
 import Modal from '../Ui/Modal';
 import Button from '../Ui/Button';
 import styles from './ShareModal.module.css';
 
 export default function ShareModal({ board, onClose }) {
-  const url = window.location.origin + board.board_url;
+  const url = resolveAppUrl(board.board_url || getBoardPublicUrl(board.public_id));
+  const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(url);
-    alert('Copied to clipboard');
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
   };
 
   return (
@@ -20,7 +25,7 @@ export default function ShareModal({ board, onClose }) {
         <p className={styles.text}>Anyone with this link can access this MVP board.</p>
         <div className={styles.inputGroup}>
           <input readOnly value={url} className={styles.input} />
-          <Button onClick={handleCopy}>Copy link</Button>
+          <Button onClick={handleCopy}>{copied ? 'Copied' : 'Copy link'}</Button>
         </div>
       </div>
     </Modal>

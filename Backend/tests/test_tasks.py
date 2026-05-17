@@ -39,3 +39,27 @@ def test_update_task(client: TestClient, db_session: Session) -> None:
     
     assert update_res.status_code == 200
     assert update_res.json()["guest_id"] == "g456"
+
+
+def test_move_task_rejects_column_from_another_board(client: TestClient, db_session: Session) -> None:
+    board_a = client.post("/api/boards", json={"name": "Board A", "retention_days": 3}).json()
+    board_b = client.post("/api/boards", json={"name": "Board B", "retention_days": 3}).json()
+
+    task = client.post(
+        "/api/tasks",
+        json={
+            "board_id": board_a["id"],
+            "column_id": board_a["columns"][0]["id"],
+            "title": "A Task",
+        },
+    ).json()
+
+    move_res = client.patch(
+        f"/api/tasks/{task['id']}/move",
+        json={
+            "column_id": board_b["columns"][0]["id"],
+            "version": task["version"],
+        },
+    )
+
+    assert move_res.status_code == 404

@@ -80,6 +80,11 @@ def sync_client(app):
 
 
 @pytest.fixture()
+def client(sync_client):
+    yield sync_client
+
+
+@pytest.fixture()
 def seeded_board(db_session):
     from app.repositories.board_repository import BoardRepository
     from app.repositories.column_repository import ColumnRepository

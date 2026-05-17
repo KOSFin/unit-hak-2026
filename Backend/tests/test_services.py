@@ -105,6 +105,9 @@ def test_event_notification_rule_seed_and_automation_services(
     assert notification_service.mark_all_as_read() == 0
     plain = notification_service.create_notification("Plain", "Message", "system", None)
     assert plain.task_id is None
+    scoped = notification_service.create_notification("Scoped", "Message", "system", None, board_id=board.id)
+    assert notification_service.mark_as_read(scoped.id, board_id="wrong-board") is None
+    assert notification_service.mark_all_as_read(board_id=board.id) == 1
 
     service = AutomationRuleService(db_session)
     rule = service.create_rule(
@@ -117,10 +120,23 @@ def test_event_notification_rule_seed_and_automation_services(
         )
     )
     assert service.list_rules() == [rule]
+    scoped_rule = service.create_rule(
+        AutomationRuleCreate(
+            board_id=board.id,
+            name="Scoped Rule",
+            enabled=True,
+            trigger_type="TASK_CREATED",
+            condition={},
+            action={},
+        )
+    )
+    assert service.list_rules(board.id) == [scoped_rule]
     assert service.update_rule(rule.id, AutomationRuleUpdate(enabled=False)).enabled is False
+    assert service.update_rule(scoped_rule.id, AutomationRuleUpdate(enabled=False)).enabled is False
     assert service.update_rule(rule.id, AutomationRuleUpdate()) == rule
     assert service.update_rule("missing", AutomationRuleUpdate(enabled=True)) is None
     assert service.delete_rule(rule.id) is True
+    assert service.delete_rule(scoped_rule.id) is True
     assert service.delete_rule("missing") is False
 
     automation = AutomationService(db_session)

@@ -1,7 +1,7 @@
-const FALLBACK_WS_URL = 'ws://localhost:8000/ws';
-
 export function createRealtimeSocket(handlers) {
-  const target = import.meta.env.VITE_WS_URL ?? FALLBACK_WS_URL;
+  const fallbackProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const fallbackTarget = `${fallbackProtocol}//${window.location.host}/ws`;
+  const target = import.meta.env.VITE_WS_URL ?? fallbackTarget;
   const socket = new WebSocket(target);
 
   socket.addEventListener('open', () => {
