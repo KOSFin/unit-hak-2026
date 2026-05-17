@@ -1,15 +1,7 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import Layout from './components/Layout/Layout';
-
-function LandingPage() {
-  return <div>Landing</div>;
-}
-
-function BoardPage() {
-  const { publicBoardId } = useParams();
-  return <div>Board {publicBoardId}</div>;
-}
+import LandingPage from './components/LandingPage/LandingPage';
+import BoardPage from './components/Board/BoardPage';
 
 export default function App() {
   return (

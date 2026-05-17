@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Button from '../Ui/Button';
 import Badge from '../Ui/Badge';
@@ -40,6 +40,17 @@ export default function TaskModal({
   const [form, setForm] = useState(taskToForm(columns, task));
   const [errors, setErrors] = useState({});
   const [tagInput, setTagInput] = useState('');
+
+  useEffect(() => {
+    if (task && task.id) {
+      window.dispatchEvent(new CustomEvent('task-edit-start', { detail: task.id }));
+    }
+    return () => {
+      if (task && task.id) {
+        window.dispatchEvent(new CustomEvent('task-edit-end', { detail: task.id }));
+      }
+    };
+  }, [task]);
 
   const handleChange = (field) => (event) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));

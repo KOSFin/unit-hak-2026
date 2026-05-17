@@ -1,14 +1,7 @@
-import { apiClient } from './client';
+import { apiClient, boardParams } from './client';
 
 export async function getTasks(boardId) {
-  const { data } = await apiClient.get('/api/tasks', {
-    params: boardId ? { board_id: boardId } : undefined,
-  });
-  return data;
-}
-
-export async function getTask(taskId) {
-  const { data } = await apiClient.get(`/api/tasks/${taskId}`);
+  const { data } = await apiClient.get('/api/tasks', { params: boardParams(boardId) });
   return data;
 }
 
@@ -17,17 +10,26 @@ export async function createTask(payload) {
   return data;
 }
 
+export async function getTask(taskId) {
+  const { data } = await apiClient.get(`/api/tasks/${taskId}`);
+  return data;
+}
+
 export async function updateTask(taskId, payload) {
   const { data } = await apiClient.patch(`/api/tasks/${taskId}`, payload);
   return data;
 }
 
-export async function deleteTask(taskId) {
-  const { data } = await apiClient.delete(`/api/tasks/${taskId}`);
+export async function moveTask(taskId, payload, boardId) {
+  const { data } = await apiClient.patch(`/api/tasks/${taskId}/move`, payload, {
+    params: boardParams(boardId)
+  });
   return data;
 }
 
-export async function moveTask(taskId, payload) {
-  const { data } = await apiClient.patch(`/api/tasks/${taskId}/move`, payload);
+export async function deleteTask(taskId, boardId) {
+  const { data } = await apiClient.delete(`/api/tasks/${taskId}`, {
+    params: boardParams(boardId)
+  });
   return data;
 }

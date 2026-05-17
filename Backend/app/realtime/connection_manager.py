@@ -17,6 +17,7 @@ class PresenceUser:
     display_name: str
     color: str | None = None
     avatar_url: str | None = None
+    active_task_id: str | None = None
     connected_at: datetime | None = None
     active_connections: int = 0
 
@@ -80,10 +81,18 @@ class ConnectionManager:
         existing.avatar_url = user.get("avatar_url") or existing.avatar_url
         return self.snapshot(board_id)
 
-    def start_editing(self, board_id: str, guest_id: str) -> dict[str, Any]:
+    def start_editing(self, board_id: str, guest_id: str, active_task_id: str) -> dict[str, Any]:
         board = self.boards[board_id]
         if guest_id in board.guests:
-            board.editing[guest_id] = board.guests[guest_id]
+            user = board.guests[guest_id]
+            editing_user = PresenceUser(
+                guest_id=user.guest_id,
+                display_name=user.display_name,
+                color=user.color,
+                avatar_url=user.avatar_url,
+                active_task_id=active_task_id
+            )
+            board.editing[guest_id] = editing_user
         return self.snapshot(board_id)
 
     def stop_editing(self, board_id: str, guest_id: str) -> dict[str, Any]:
@@ -92,10 +101,18 @@ class ConnectionManager:
             board.editing.pop(guest_id, None)
         return self.snapshot(board_id)
 
-    def start_dragging(self, board_id: str, guest_id: str) -> dict[str, Any]:
+    def start_dragging(self, board_id: str, guest_id: str, active_task_id: str) -> dict[str, Any]:
         board = self.boards[board_id]
         if guest_id in board.guests:
-            board.dragging[guest_id] = board.guests[guest_id]
+            user = board.guests[guest_id]
+            dragging_user = PresenceUser(
+                guest_id=user.guest_id,
+                display_name=user.display_name,
+                color=user.color,
+                avatar_url=user.avatar_url,
+                active_task_id=active_task_id
+            )
+            board.dragging[guest_id] = dragging_user
         return self.snapshot(board_id)
 
     def stop_dragging(self, board_id: str, guest_id: str) -> dict[str, Any]:
@@ -122,6 +139,7 @@ class ConnectionManager:
             display_name=str(user.get("display_name") or "Guest"),
             color=user.get("color"),
             avatar_url=user.get("avatar_url"),
+            active_task_id=user.get("active_task_id")
         )
 
     def _serialize_user(self, user: PresenceUser) -> dict[str, Any]:
@@ -130,6 +148,7 @@ class ConnectionManager:
             "display_name": user.display_name,
             "color": user.color,
             "avatar_url": user.avatar_url,
+            "active_task_id": user.active_task_id,
             "connected_at": user.connected_at.isoformat() if user.connected_at else None,
             "active_connections": user.active_connections,
         }

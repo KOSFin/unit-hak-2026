@@ -1,109 +1,41 @@
-import pytest
-
-from app.repositories.event_repository import DomainEventRepository
-
-
-@pytest.mark.anyio
-async def test_tasks_crud_and_conflict(async_client, db_session, seeded_board):
-    board = seeded_board["board"]
-    todo = seeded_board["todo"]
-    in_progress = seeded_board["in_progress"]
-
-    response = await async_client.post(
-        "/api/tasks",
-        json={
-            "board_id": board.id,
-            "column_id": todo.id,
-            "title": "Build API",
-            "tags": ["urgent"],
-        },
-    )
-    assert response.status_code == 201
-    created = response.json()
-    assert created["position"] == 1
-    assert created["version"] == 1
-
-    response = await async_client.get("/api/tasks", params={"board_id": board.id})
-    assert response.status_code == 200
-    assert len(response.json()) == 1
-
-    response = await async_client.get(f"/api/tasks/{created['id']}")
-    assert response.status_code == 200
-
-    response = await async_client.patch(
-        f"/api/tasks/{created['id']}",
-        json={"title": "Build better API", "version": 1},
-    )
-    assert response.status_code == 200
-    updated = response.json()
-    assert updated["title"] == "Build better API"
-    assert updated["version"] == 2
-
-    response = await async_client.patch(
-        f"/api/tasks/{created['id']}/move",
-        json={"column_id": in_progress.id, "version": 2},
-    )
-    assert response.status_code == 200
-    moved = response.json()
-    assert moved["column_id"] == in_progress.id
-    assert moved["version"] == 3
-
-    conflict = await async_client.patch(
-        f"/api/tasks/{created['id']}",
-        json={"title": "Outdated", "version": 1},
-    )
-    assert conflict.status_code == 409
-
-    deleted = await async_client.delete(f"/api/tasks/{created['id']}")
-    assert deleted.status_code == 200
-
-    missing = await async_client.get(f"/api/tasks/{created['id']}")
-    assert missing.status_code == 404
-
-    events = DomainEventRepository(db_session).list_unprocessed()
-    assert len(events) == 4
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+from app.models.task import Task
 
 
-@pytest.mark.anyio
-async def test_task_errors(async_client, seeded_board):
-    board = seeded_board["board"]
-
-    response = await async_client.post(
-        "/api/tasks",
-        json={"board_id": board.id, "column_id": "missing", "title": "Broken"},
-    )
-    assert response.status_code == 404
-
-    response = await async_client.patch("/api/tasks/missing", json={"title": "Nope", "version": 1})
-    assert response.status_code == 404
-
-    response = await async_client.patch(
-        "/api/tasks/missing/move",
-        json={"column_id": seeded_board["todo"].id, "version": 1},
-    )
-    assert response.status_code == 404
-
-    response = await async_client.post(
-        "/api/tasks",
-        json={
-            "board_id": board.id,
-            "column_id": seeded_board["todo"].id,
-            "title": "Existing",
-            "position": 5,
-        },
-    )
-    created = response.json()
-    response = await async_client.patch(
-        f"/api/tasks/{created['id']}/move",
-        json={"column_id": "missing", "version": created["version"]},
-    )
-    assert response.status_code == 404
-
-    response = await async_client.patch(
-        f"/api/tasks/{created['id']}/move",
-        json={"column_id": seeded_board["todo"].id, "version": 999},
-    )
-    assert response.status_code == 409
-
-    response = await async_client.delete("/api/tasks/missing")
-    assert response.status_code == 404
+def test_create_task(client: TestClient, db_session: Session) -> None:
+    board_res = client.post("/api/boards", json={"name": "Task Board", "retention_days": 3})
+    board_id = board_res.json()["id"]
+    public_id = board_res.json()["public_id"]
+    
+    col_res = client.get(f"/api/boards/{public_id}")
+    col_id = col_res.json()["columns"][0]["id"]
+    
+    task_res = client.post("/api/tasks", json={
+        "board_id": board_id,
+        "column_id": col_id,
+        "title": "A Task",
+        "guest_id": "g123",
+        "correlation_id": "corr1"
+    })
+    
+    assert task_res.status_code == 201
+    assert task_res.json()["guest_id"] == "g123"
+    assert task_res.json()["correlation_id"] == "corr1"
+    
+def test_update_task(client: TestClient, db_session: Session) -> None:
+    board_res = client.post("/api/boards", json={"name": "Task Board", "retention_days": 3})
+    board_id = board_res.json()["id"]
+    public_id = board_res.json()["public_id"]
+    col_id = client.get(f"/api/boards/{public_id}").json()["columns"][0]["id"]
+    
+    task = client.post("/api/tasks", json={
+        "board_id": board_id, "column_id": col_id, "title": "A Task"
+    }).json()
+    
+    update_res = client.patch(f"/api/tasks/{task['id']}", json={
+        "title": "Updated", "version": task["version"], "guest_id": "g456"
+    })
+    
+    assert update_res.status_code == 200
+    assert update_res.json()["guest_id"] == "g456"

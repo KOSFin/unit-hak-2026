@@ -7,6 +7,7 @@ from app.api.health import router as health_router
 from app.api.incoming_tasks import router as incoming_tasks_router
 from app.api.notifications import router as notifications_router
 from app.api.tasks import router as tasks_router
+from app.api.uploads import router as uploads_router
 from app.realtime.routes import router as ws_router
 
 api_router = APIRouter()
@@ -17,4 +18,5 @@ api_router.include_router(columns_router)
 api_router.include_router(incoming_tasks_router)
 api_router.include_router(notifications_router)
 api_router.include_router(tasks_router)
+api_router.include_router(uploads_router)
 api_router.include_router(ws_router)

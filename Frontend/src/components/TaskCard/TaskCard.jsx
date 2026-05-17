@@ -18,7 +18,7 @@ function formatDeadline(value) {
   }).format(new Date(value));
 }
 
-function TaskCardContent({ task }) {
+function TaskCardContent({ task, editingUsers, draggingUsers }) {
   return (
     <>
       <div className={styles.header}>
@@ -41,6 +41,20 @@ function TaskCardContent({ task }) {
         <span>{task.status}</span>
         <span>{task.deadline ? formatDeadline(task.deadline) : 'No deadline'}</span>
       </div>
+      
+      {editingUsers?.length > 0 && (
+         <div className={styles.indicatorBadge}>
+            <span className={styles.indicatorDot} style={{backgroundColor: editingUsers[0].color}}></span>
+            Editing by {editingUsers[0].display_name}
+         </div>
+      )}
+      
+      {draggingUsers?.length > 0 && !editingUsers?.length && (
+         <div className={styles.indicatorBadge}>
+            <span className={styles.indicatorDot} style={{backgroundColor: draggingUsers[0].color}}></span>
+            Moving by {draggingUsers[0].display_name}
+         </div>
+      )}
     </>
   );
 }
@@ -53,7 +67,7 @@ export function TaskCardPreview({ task }) {
   );
 }
 
-export default function TaskCard({ task, onOpen }) {
+export default function TaskCard({ task, onOpen, editingUsers, draggingUsers }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task:${task.id}`,
     data: {
@@ -62,21 +76,25 @@ export default function TaskCard({ task, onOpen }) {
       columnId: task.column_id,
     },
   });
+  
+  const isEditing = editingUsers?.length > 0;
+  const isOtherDragging = draggingUsers?.length > 0 && !isDragging;
 
   return (
     <button
       ref={setNodeRef}
       type="button"
-      className={`${styles.card} ${isDragging ? styles.dragging : ''}`}
+      className={`${styles.card} ${isDragging ? styles.dragging : ''} ${isEditing ? styles.cardEditing : ''} ${isOtherDragging ? styles.cardMoving : ''}`}
       style={{
         transform: CSS.Translate.toString(transform),
         transition,
+        '--indicator-color': isEditing ? editingUsers[0].color : (isOtherDragging ? draggingUsers[0].color : 'transparent')
       }}
       onClick={() => onOpen(task)}
       {...attributes}
       {...listeners}
     >
-      <TaskCardContent task={task} />
+      <TaskCardContent task={task} editingUsers={editingUsers} draggingUsers={draggingUsers} />
     </button>
   );
 }

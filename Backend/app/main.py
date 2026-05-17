@@ -1,8 +1,10 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -15,8 +17,6 @@ from app.services.seed_service import seed_demo_data
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     loop = asyncio.get_running_loop()
-    # Database tables are managed by Alembic migrations.
-    # Base.metadata.create_all(bind=engine) is removed to avoid conflicts.
 
     settings = get_settings()
     if settings.seed_demo_data:
@@ -25,6 +25,8 @@ async def lifespan(_app: FastAPI):
             seed_demo_data(session)
         finally:
             session.close()
+            
+    os.makedirs(settings.uploads_dir, exist_ok=True)
 
     relay = RealtimeRelay(loop)
     relay.start()
@@ -50,6 +52,9 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(api_router)
+    
+    app.mount(f"/{settings.uploads_dir}", StaticFiles(directory=settings.uploads_dir), name="uploads")
+    
     return app
 
 

@@ -1,4 +1,9 @@
-import { apiClient } from './client';
+import { apiClient, boardParams } from './client';
+
+export async function getColumns(boardId) {
+  const { data } = await apiClient.get('/api/columns', { params: boardParams(boardId) });
+  return data;
+}
 
 export async function createColumn(payload) {
   const { data } = await apiClient.post('/api/columns', payload);
@@ -10,7 +15,7 @@ export async function updateColumn(columnId, payload) {
   return data;
 }
 
-export async function deleteColumn(columnId) {
-  const { data } = await apiClient.delete(`/api/columns/${columnId}`);
+export async function deleteColumn(columnId, boardId) {
+  const { data } = await apiClient.delete(`/api/columns/${columnId}`, { params: boardParams(boardId) });
   return data;
 }

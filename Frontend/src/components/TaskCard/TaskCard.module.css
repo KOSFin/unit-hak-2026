@@ -60,3 +60,32 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.indicatorBadge {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--color-text-dimmed);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--color-bg-dimmed);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  width: max-content;
+}
+
+.indicatorDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.cardEditing {
+  border-color: var(--indicator-color);
+  box-shadow: 0 0 0 1px var(--indicator-color);
+}
+
+.cardMoving {
+  border-color: var(--indicator-color);
+  opacity: 0.7;
+}

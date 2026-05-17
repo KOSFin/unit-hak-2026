@@ -123,3 +123,74 @@
     justify-content: space-between;
   }
 }
+
+.logoImg {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.onlineGroup {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+}
+
+.onlineAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-bg);
+  margin-left: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+.onlineAvatar:first-child {
+  margin-left: 0;
+}
+
+.onlineExtra {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-bg);
+  background: var(--color-bg-dimmed);
+  margin-left: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-dimmed);
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.iconBtn {
+  padding: 0 0.5rem;
+}
+
+.notifBtn {
+  position: relative;
+}
+
+.profileBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.profileBtn:hover {
+  border-color: var(--color-accent);
+}

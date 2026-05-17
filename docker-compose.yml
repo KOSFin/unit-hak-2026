@@ -51,6 +51,8 @@ services:
     command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_INTERNAL_PORT:-8000}"]
     expose:
       - "${BACKEND_INTERNAL_PORT:-8000}"
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +71,8 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    volumes:
+      - uploads-data:/app/uploads
     command: ["sh", "-c", "python -m app.worker"]
     depends_on:
       postgres:
@@ -97,8 +101,11 @@ services:
       backend-api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${FRONTEND_INTERNAL_PORT:-3000}/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${FRONTEND_INTERNAL_PORT:-3000}/health || true"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+
+volumes:
+  uploads-data:

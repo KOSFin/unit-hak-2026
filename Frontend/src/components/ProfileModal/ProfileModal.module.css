@@ -1,0 +1,60 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.avatarSection {
+  display: flex;
+  justify-content: center;
+}
+
+.avatarPreview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-border);
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarInitial {
+  color: white;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.avatarOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.25rem 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatarPreview:hover .avatarOverlay {
+  opacity: 1;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  width: 100%;
+}

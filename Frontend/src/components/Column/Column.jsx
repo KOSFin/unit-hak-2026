@@ -1,12 +1,12 @@
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 import Button from '../Ui/Button';
 import TaskCard from '../TaskCard/TaskCard';
 import styles from './Column.module.css';
 
-export default function Column({ column, tasks, onCreateTask, onOpenTask }) {
-  const { isOver, setNodeRef } = useDroppable({
+export default function Column({ column, tasks, onCreateTask, onOpenTask, editingUsersMap, draggingUsersMap }) {
+  const { setNodeRef } = useDroppable({
     id: `column:${column.id}`,
     data: {
       type: 'column',
@@ -15,30 +15,34 @@ export default function Column({ column, tasks, onCreateTask, onOpenTask }) {
   });
 
   return (
-    <section ref={setNodeRef} className={`${styles.column} ${isOver ? styles.over : ''}`}>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.kicker}>{column.is_default ? 'Default lane' : 'Custom lane'}</p>
-          <h2 className={styles.title}>{column.title}</h2>
-        </div>
-        <span className={styles.count}>{tasks.length}</span>
-      </header>
+    <div className={styles.column}>
+      <div className={styles.header}>
+        <h2 className={styles.title}>{column.title}</h2>
+        <span className={styles.counter}>{tasks.length}</span>
+      </div>
 
-      <SortableContext
-        items={tasks.map((task) => `task:${task.id}`)}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className={styles.list}>
-          {tasks.length === 0 ? <div className={styles.empty}>Drop here</div> : null}
+      <div className={styles.list} ref={setNodeRef}>
+        <SortableContext
+          items={tasks.map((t) => `task:${t.id}`)}
+          strategy={verticalListSortingStrategy}
+        >
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onOpen={onOpenTask} />
+            <TaskCard 
+               key={task.id} 
+               task={task} 
+               onOpen={onOpenTask} 
+               editingUsers={editingUsersMap?.[task.id]} 
+               draggingUsers={draggingUsersMap?.[task.id]}
+            />
           ))}
-        </div>
-      </SortableContext>
+        </SortableContext>
+      </div>
 
-      <Button variant="ghost" block onClick={() => onCreateTask(column.id)}>
-        Add task
-      </Button>
-    </section>
+      <div className={styles.footer}>
+        <Button variant="ghost" size="sm" onClick={() => onCreateTask(column.id)}>
+          + Add task
+        </Button>
+      </div>
+    </div>
   );
 }

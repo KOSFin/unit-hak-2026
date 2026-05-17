@@ -1,21 +1,21 @@
 import { apiClient, boardParams } from './client';
 
-export async function getNotifications(unreadOnly = false, boardId = null) {
-  const { data } = await apiClient.get('/api/notifications', {
-    params: {
-      ...(unreadOnly ? { unread_only: true } : {}),
-      ...(boardParams(boardId) ?? {}),
-    },
-  });
+export async function getNotifications(boardId) {
+  const { data } = await apiClient.get('/api/notifications', { params: boardParams(boardId) });
   return data;
 }
 
-export async function markNotificationRead(notificationId) {
-  const { data } = await apiClient.patch(`/api/notifications/${notificationId}/read`);
+export async function markNotificationRead(notificationId, boardId) {
+  const { data } = await apiClient.post(`/api/notifications/${notificationId}/read`, null, { params: boardParams(boardId) });
   return data;
 }
 
-export async function markAllNotificationsRead() {
-  const { data } = await apiClient.post('/api/notifications/mark-all-read');
+export async function markAllNotificationsRead(boardId) {
+  const { data } = await apiClient.post('/api/notifications/read-all', null, { params: boardParams(boardId) });
+  return data;
+}
+
+export async function testNotification(payload) {
+  const { data } = await apiClient.post('/api/notifications/test', payload);
   return data;
 }

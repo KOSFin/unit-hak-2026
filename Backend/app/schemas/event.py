@@ -40,3 +40,7 @@ class ActivityEventRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class ActivityGroupRead(BaseModel):
+    correlation_id: str | None
+    events: list[ActivityEventRead]

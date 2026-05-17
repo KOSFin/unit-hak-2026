@@ -19,31 +19,26 @@ export default function Board({
   onCreateTask,
   onOpenTask,
   onMoveTask,
+  editingUsersMap = {},
+  draggingUsersMap = {},
+  onDragStartEmit,
+  onDragEndEmit,
 }) {
-  // localTasks is the optimistic view during drag and the committed view after
   const [activeId, setActiveId] = useState(null);
   const [localTasks, setLocalTasks] = useState(tasks);
-
-  // Snapshot of tasks at the moment drag started — never mutated during drag
   const dragStartTasksRef = useRef(null);
-  // True while we are suppressing the next server-sync (right after we commit a move)
   const ignoreSyncRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        // Require a small movement to distinguish drag from click
         distance: 6,
       },
     }),
   );
 
-  // Sync server state → localTasks only when NOT dragging and not suppressed
   useEffect(() => {
-    if (activeId !== null) {
-      // Mid-drag: never overwrite optimistic state with server data
-      return;
-    }
+    if (activeId !== null) return;
     if (ignoreSyncRef.current) {
       ignoreSyncRef.current = false;
       return;
@@ -59,20 +54,16 @@ export default function Board({
     return activeTaskSnapshot ?? localTasks.find((t) => t.id === id) ?? null;
   }, [activeId, localTasks, activeTaskSnapshot]);
 
-  /**
-   * Given the droppable `over` and the active draggable descriptor, compute
-   * where the card should land.
-   *
-   * IMPORTANT: we always compute indices relative to `snapshot` (the task list
-   * at drag-start), not the live optimistic list.  This prevents accumulated
-   * errors when DragOver fires many times per second.
-   */
   const handleDragStart = useCallback(({ active }) => {
     dragStartTasksRef.current = localTasks;
     const id = String(active.id).replace('task:', '');
-    setActiveTaskSnapshot(localTasks.find(t => t.id === id) ?? null);
+    const taskObj = localTasks.find(t => t.id === id);
+    setActiveTaskSnapshot(taskObj ?? null);
     setActiveId(active.id);
-  }, [localTasks]);
+    if (onDragStartEmit && taskObj) {
+      onDragStartEmit(taskObj.id);
+    }
+  }, [localTasks, onDragStartEmit]);
 
   const handleDragOver = useCallback(({ active, over }) => {
     if (!over || active.id === over.id) return;
@@ -124,6 +115,10 @@ export default function Board({
   const handleDragEnd = useCallback(({ active, over }) => {
     const snapshot = dragStartTasksRef.current;
     dragStartTasksRef.current = null;
+    
+    if (onDragEndEmit) {
+      onDragEndEmit();
+    }
 
     if (!over || !snapshot) {
       setActiveTaskSnapshot(null);
@@ -143,7 +138,6 @@ export default function Board({
         return;
     }
 
-    // Work out final position based on localTasks
     setLocalTasks((currentTasks) => {
       setActiveTaskSnapshot(null);
       const activeTaskCurrent = currentTasks.find((t) => t.id === activeIdStr);
@@ -177,7 +171,6 @@ export default function Board({
           targetIndex = columnTasks.findIndex((t) => t.id === overIdStr);
           const activeIndexInColumn = columnTasks.findIndex((t) => t.id === activeIdStr);
 
-          // Standard DndKit rect comparison
           if (activeTaskCurrent.column_id !== targetColumnId) {
              const overRect = over.rect;
              if (overRect && active.rect?.current?.translated) {
@@ -189,20 +182,15 @@ export default function Board({
                }
              }
           } else {
-             // In the same column, active and over indexes are straightforward
              if (activeIndexInColumn !== -1) {
-                // Determine if we are moving down
                 if (targetIndex > activeIndexInColumn) {
-                    // Dnd-kit handles same column shift
                      const overRect = over.rect;
                      if (overRect && active.rect?.current?.translated) {
                        const overMidY = overRect.top + overRect.height / 2;
                        const activeCenterY =
                          active.rect.current.translated.top + active.rect.current.translated.height / 2;
                        if (activeCenterY > overMidY) {
-                         // already moved down?
                        } else {
-                          //targetIndex -= 1;
                        }
                      }
                 }
@@ -218,13 +206,12 @@ export default function Board({
 
       if (noChange) {
         setActiveId(null);
-        return tasks; // rollback to server tasks
+        return tasks;
       }
 
       ignoreSyncRef.current = true;
       setActiveId(null);
       
-      // Need to find the actual index in the final tasks
       const finalColumnTasks = finalTasks.filter(t => t.column_id === targetColumnId);
       const finalIndex = finalColumnTasks.findIndex(t => t.id === activeIdStr);
 
@@ -234,19 +221,21 @@ export default function Board({
 
       return finalTasks;
     });
-  }, [columns, tasks, onMoveTask]);
+  }, [columns, tasks, onMoveTask, onDragEndEmit]);
 
   const handleDragCancel = useCallback(() => {
     dragStartTasksRef.current = null;
     setActiveTaskSnapshot(null);
     setActiveId(null);
     setLocalTasks(tasks);
-  }, [tasks]);
+    if (onDragEndEmit) {
+      onDragEndEmit();
+    }
+  }, [tasks, onDragEndEmit]);
 
   return (
     <DndContext
       sensors={sensors}
-      // closestCorners works better than closestCenter for mixed column + card droppables
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -261,6 +250,8 @@ export default function Board({
             tasks={localTasks.filter((task) => task.column_id === column.id)}
             onCreateTask={onCreateTask}
             onOpenTask={onOpenTask}
+            editingUsersMap={editingUsersMap}
+            draggingUsersMap={draggingUsersMap}
           />
         ))}
       </div>

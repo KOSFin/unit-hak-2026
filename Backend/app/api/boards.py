@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_session
 from app.schemas.board import BoardCreate, BoardCreatedResponse, BoardDetail
-from app.schemas.event import ActivityEventRead
+from app.schemas.event import ActivityEventRead, ActivityGroupRead
 from app.schemas.column import ColumnRead
 from app.services.board_service import BoardService
 from app.repositories.event_repository import DomainEventRepository
@@ -63,11 +63,29 @@ def get_board(public_board_id: str, session: SessionDep) -> BoardDetail:
     return serialize_board_detail(service, board)
 
 
-@router.get("/{public_board_id}/events", response_model=list[ActivityEventRead])
-def get_board_events(public_board_id: str, session: SessionDep, limit: int = 50) -> list[ActivityEventRead]:
+@router.get("/{public_board_id}/events", response_model=list[ActivityGroupRead])
+def get_board_events(public_board_id: str, session: SessionDep, limit: int = 50) -> list[ActivityGroupRead]:
     service = BoardService(session)
     board = service.get_board_by_public_id(public_board_id)
     if not board:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
+    
     events = DomainEventRepository(session).list_recent(board.id, limit=limit)
-    return [ActivityEventRead.model_validate(event) for event in events]
+    
+    # Group by correlation_id while preserving order
+    groups = []
+    current_group = None
+    
+    for event in events:
+        if current_group is None:
+            current_group = {"correlation_id": event.correlation_id, "events": [ActivityEventRead.model_validate(event)]}
+        elif event.correlation_id == current_group["correlation_id"]:
+            current_group["events"].append(ActivityEventRead.model_validate(event))
+        else:
+            groups.append(ActivityGroupRead(**current_group))
+            current_group = {"correlation_id": event.correlation_id, "events": [ActivityEventRead.model_validate(event)]}
+            
+    if current_group:
+        groups.append(ActivityGroupRead(**current_group))
+        
+    return groups
