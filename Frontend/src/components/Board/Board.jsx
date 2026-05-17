@@ -1,7 +1,8 @@
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCorners,
   pointerWithin,
   useSensor,
@@ -74,6 +75,14 @@ function collisionDetectionStrategy(args) {
   });
 }
 
+function getIsCoarsePointer() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+
+  return window.matchMedia('(pointer: coarse)').matches;
+}
+
 export default function Board({
   columns,
   tasks,
@@ -100,9 +109,15 @@ export default function Board({
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 6,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 320,
+        tolerance: 8,
       },
     }),
   );
@@ -130,6 +145,9 @@ export default function Board({
     const taskObj = localTasks.find(t => t.id === id);
     setActiveTaskSnapshot(taskObj ?? null);
     setActiveId(active.id);
+    if (getIsCoarsePointer() && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(18);
+    }
     if (onDragStartEmit && taskObj) {
       onDragStartEmit(taskObj.id);
     }

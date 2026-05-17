@@ -439,8 +439,12 @@
   padding: 4px;
 }
 
-.notificationsOverlay {
-  z-index: 75;
+.mobileNotificationsOverlay.mobileNotificationsOverlay {
+  display: none;
+}
+
+.desktopNotificationsMenu.desktopNotificationsMenu {
+  display: grid;
 }
 
 .mobileProfileAvatar {
@@ -945,6 +949,7 @@
 
   .mobileMenuButton {
     display: grid;
+    gap: 2px;
   }
 
   .mobileMenuPanel {
@@ -978,6 +983,14 @@
 
   .main {
     overflow: visible;
+  }
+
+  .mobileNotificationsOverlay.mobileNotificationsOverlay {
+    display: grid;
+  }
+
+  .desktopNotificationsMenu.desktopNotificationsMenu {
+    display: none;
   }
 
 }

@@ -1,7 +1,6 @@
 .stack {
   display: grid;
-  gap: 16px;
-  min-height: 0;
+  gap: 18px;
 }
 
 .tabs {
@@ -37,11 +36,11 @@
 .panel {
   display: grid;
   gap: 18px;
-  padding: 18px;
-  border: 1px solid rgba(223, 223, 215, 0.74);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.68);
-  box-shadow: 0 12px 24px rgba(20, 20, 18, 0.04);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-card);
 }
 
 .kicker {
@@ -121,6 +120,11 @@
 }
 
 @media (max-width: 640px) {
+  .stack {
+    gap: 16px;
+    min-height: 0;
+  }
+
   .tabs {
     gap: 8px;
   }
@@ -133,7 +137,10 @@
 
   .panel {
     padding: 14px;
+    border: 1px solid rgba(223, 223, 215, 0.74);
     border-radius: 18px;
+    background: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 12px 24px rgba(20, 20, 18, 0.04);
   }
 
   .createRow {

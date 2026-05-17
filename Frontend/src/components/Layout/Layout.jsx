@@ -461,6 +461,15 @@ export default function Layout({
               {unreadCount > 0 ? <span className={styles.notificationsBadge}>{unreadCount}</span> : null}
               <span className="sr-only">{t('notifications', language)}</span>
             </Button>
+            {notificationsOpen ? (
+              <NotificationsMenu
+                notifications={notifications}
+                pending={pending}
+                onMarkRead={onMarkNotificationRead}
+                onMarkAllRead={onMarkAllNotificationsRead}
+                className={styles.desktopNotificationsMenu}
+              />
+            ) : null}
           </div>
 
           {canManageBoard ? (
@@ -735,7 +744,7 @@ export default function Layout({
           onMarkRead={onMarkNotificationRead}
           onMarkAllRead={onMarkAllNotificationsRead}
           onClose={onCloseNotifications}
-          className={styles.notificationsOverlay}
+          className={styles.mobileNotificationsOverlay}
         />
       ) : null}
 
