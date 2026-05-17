@@ -77,6 +77,7 @@ export default function BoardPage() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [editingUsersMap, setEditingUsersMap] = useState({});
   const [draggingUsersMap, setDraggingUsersMap] = useState({});
+  const [realtimeStatus, setRealtimeStatus] = useState('idle');
 
   const socketRef = useRef(null);
 
@@ -167,20 +168,36 @@ export default function BoardPage() {
       return undefined;
     }
 
+    setRealtimeStatus('connecting');
+
+    const sendPresenceJoin = (wsClient) => {
+      wsClient.send(
+        JSON.stringify({
+          type: 'presence.join',
+          board_id: board.public_id,
+          user: {
+            guest_id: identity.id,
+            display_name: identity.displayName,
+            color: identity.color,
+            avatar_url: identity.avatarUrl,
+          },
+        }),
+      );
+    };
+
     const socket = createRealtimeSocket({
-      onOpen: () => {
-        socket.send(
-          JSON.stringify({
-            type: 'presence.join',
-            board_id: board.public_id,
-            user: {
-              guest_id: identity.id,
-              display_name: identity.displayName,
-              color: identity.color,
-              avatar_url: identity.avatarUrl,
-            },
-          }),
-        );
+      onConnecting: () => {
+        setRealtimeStatus('connecting');
+      },
+      onOpen: (wsClient) => {
+        setRealtimeStatus('connected');
+        sendPresenceJoin(wsClient);
+      },
+      onClose: () => {
+        setRealtimeStatus('disconnected');
+      },
+      onError: () => {
+        setRealtimeStatus('error');
       },
       onMessage: (message) => {
         if (message.type === 'presence.snapshot' || message.type === 'presence.updated') {
@@ -190,6 +207,11 @@ export default function BoardPage() {
             buildPresenceMaps(snapshot, identity.id);
           setEditingUsersMap(nextEditing);
           setDraggingUsersMap(nextDragging);
+          return;
+        }
+
+        if (message.type === 'system.error') {
+          setRealtimeStatus('error');
           return;
         }
 
@@ -240,6 +262,10 @@ export default function BoardPage() {
     return () => {
       socket.close();
       socketRef.current = null;
+      setRealtimeStatus('idle');
+      setOnlineUsers([]);
+      setEditingUsersMap({});
+      setDraggingUsersMap({});
     };
   }, [
     board,
@@ -537,6 +563,7 @@ export default function BoardPage() {
       board={board}
       identity={identity}
       onlineUsers={onlineUsers}
+      realtimeStatus={realtimeStatus}
       onUpdateIdentity={(updated) => {
         setIdentity(updated);
         sendWsUpdate('presence.update', {

@@ -35,7 +35,6 @@ class ConnectionManager:
         self.boards: dict[str, BoardPresence] = defaultdict(BoardPresence)
 
     async def connect(self, board_id: str, websocket: WebSocket, user: dict[str, Any]) -> dict[str, Any]:
-        await websocket.accept()
         presence = self._user_from_payload(user)
         board = self.boards[board_id]
         existing = board.guests.get(presence.guest_id)

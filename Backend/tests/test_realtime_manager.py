@@ -18,7 +18,7 @@ async def test_connect_and_snapshot() -> None:
     assert len(snapshot["users"]) == 1
     assert snapshot["users"][0]["guest_id"] == "g1"
     assert snapshot["users"][0]["display_name"] == "Guest 1"
-
+    ws.accept.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_editing_and_dragging() -> None:

@@ -27,6 +27,7 @@ export default function Layout({
   identity,
   onUpdateIdentity,
   onlineUsers = [],
+  realtimeStatus = 'idle',
   onCreateTask,
   onOpenAdmin,
   onToggleEventFlow,
@@ -70,6 +71,15 @@ export default function Layout({
 
   const displayedUsers = onlineUsers.slice(0, 3);
   const extraUsers = Math.max(0, onlineUsers.length - 3);
+  const showOnlineControl = onlineUsers.length > 0 || realtimeStatus !== 'connected';
+  const realtimeLabel =
+    realtimeStatus === 'connected'
+      ? `${onlineUsers.length} online`
+      : realtimeStatus === 'connecting'
+        ? 'Connecting…'
+        : realtimeStatus === 'error'
+          ? 'Realtime offline'
+          : 'Disconnected';
 
   return (
     <div className={styles.page}>
@@ -92,13 +102,15 @@ export default function Layout({
         </div>
 
         <div className={styles.actions}>
-          {onlineUsers.length > 0 && (
+          {showOnlineControl && (
              <div className={styles.onlineWrap} ref={onlineRef}>
                <button
                  type="button"
                  className={styles.onlineGroup}
+                 aria-label={realtimeLabel}
                  onClick={() => setOnlineOpen((current) => !current)}
                >
+               <span className={`${styles.realtimeDot} ${styles[`status${realtimeStatus[0]?.toUpperCase?.() + realtimeStatus.slice(1)}`] || ''}`}></span>
                {displayedUsers.map(user => (
                  <div 
                    key={user.guest_id} 
@@ -109,6 +121,9 @@ export default function Layout({
                    {!user.avatar_url && getInitial(user.display_name)}
                  </div>
                ))}
+               {displayedUsers.length === 0 ? (
+                 <span className={styles.onlineFallback}>{realtimeLabel}</span>
+               ) : null}
                {extraUsers > 0 && (
                  <div className={styles.onlineExtra}>+{extraUsers}</div>
                )}
@@ -116,9 +131,14 @@ export default function Layout({
                {onlineOpen ? (
                  <div className={styles.onlineDropdown}>
                    <div className={styles.onlineDropdownHeader}>
-                     <strong>{onlineUsers.length} online</strong>
+                     <strong>{realtimeLabel}</strong>
                    </div>
                    <div className={styles.onlineList}>
+                     {onlineUsers.length === 0 ? (
+                       <div className={styles.onlineEmpty}>
+                         We’ll show live collaborators here as soon as the realtime channel connects.
+                       </div>
+                     ) : null}
                      {onlineUsers.map((user) => (
                        <div key={user.guest_id} className={styles.onlineRow}>
                          <div

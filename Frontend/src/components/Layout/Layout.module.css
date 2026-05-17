@@ -149,11 +149,34 @@
 .onlineGroup {
   display: flex;
   align-items: center;
+  gap: 6px;
   margin-right: 0.5rem;
   padding: 0;
   border: none;
   background: transparent;
   cursor: pointer;
+}
+
+.realtimeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+
+.statusConnected {
+  background: var(--success);
+}
+
+.statusConnecting {
+  background: var(--warning);
+}
+
+.statusDisconnected,
+.statusError,
+.statusIdle {
+  background: var(--danger);
 }
 
 .onlineAvatar {
@@ -190,6 +213,12 @@
   font-weight: bold;
 }
 
+.onlineFallback {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
 .onlineDropdown {
   position: absolute;
   top: calc(100% + 12px);
@@ -212,6 +241,15 @@
 .onlineList {
   display: grid;
   gap: 10px;
+}
+
+.onlineEmpty {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .onlineRow {

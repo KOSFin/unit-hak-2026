@@ -28,3 +28,24 @@ def test_websocket_presence_broadcasts_disconnect_updates(client):
         assert after_disconnect["type"] == "presence.updated"
         assert len(after_disconnect["payload"]["users"]) == 1
         assert after_disconnect["payload"]["users"][0]["guest_id"] == "g1"
+
+
+def test_websocket_alias_endpoint_accepts_presence(client):
+    with client.websocket_connect("/api/ws") as socket:
+        socket.send_json(
+            {
+                "type": "presence.join",
+                "board_id": "board-alias",
+                "user": {"guest_id": "g1", "display_name": "Alias Guest"},
+            }
+        )
+        snapshot = socket.receive_json()
+        assert snapshot["type"] == "presence.snapshot"
+        assert snapshot["payload"]["board_id"] == "board-alias"
+
+
+def test_websocket_reports_missing_board_id(client):
+    with client.websocket_connect("/ws") as socket:
+        socket.send_json({"type": "presence.join", "user": {"guest_id": "g1"}})
+        error = socket.receive_json()
+        assert error["type"] == "system.error"
