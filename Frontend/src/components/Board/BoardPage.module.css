@@ -48,6 +48,26 @@
   display: none;
 }
 
+.eventFlowModal {
+  position: relative;
+}
+
+.eventFlowClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(20, 20, 18, 0.08);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.1rem;
+  z-index: 2;
+}
+
 .statePage {
   min-height: 100vh;
   display: grid;
@@ -154,21 +174,6 @@
     z-index: 1;
   }
 
-  .eventFlowClose {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 36px;
-    height: 36px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: rgba(20, 20, 18, 0.08);
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 1.1rem;
-    z-index: 2;
-  }
 }
 
 @media (max-width: 640px) {
