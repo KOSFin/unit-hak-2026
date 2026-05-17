@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { updateGuestProfile as updateGuestProfileRequest } from '../../api/guestApi';
 import { uploadImage } from '../../api/uploadsApi';
 import { useLocale } from '../../contexts/LocaleContext';
+import { getAvatarSurfaceStyle } from '../../utils/imagePlaceholders';
 import { t } from '../../utils/i18n';
 import Modal from '../Ui/Modal';
 import Input from '../Ui/Input';
@@ -70,16 +71,14 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
     >
       <div className={styles.content}>
         <div className={styles.avatarSection}>
-          <div 
-            className={styles.avatarPreview} 
-            style={{ backgroundColor: avatarUrl ? 'transparent' : identity.color }}
+          <div
+            className={styles.avatarPreview}
+            style={getAvatarSurfaceStyle(avatarUrl, identity.color)}
             onClick={() => fileInputRef.current?.click()}
           >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={t('avatar', language)} className={styles.avatarImg} />
-            ) : (
+            {!avatarUrl ? (
               <span className={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</span>
-            )}
+            ) : null}
             <div className={styles.avatarOverlay}>{t('changeAvatar', language)}</div>
           </div>
           <input 

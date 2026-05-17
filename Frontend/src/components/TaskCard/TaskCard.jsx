@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { useLocale } from '../../contexts/LocaleContext';
 import { t, formatDate } from '../../utils/i18n';
+import { getAvatarSurfaceStyle } from '../../utils/imagePlaceholders';
 import Badge from '../Ui/Badge';
 import styles from './TaskCard.module.css';
 
@@ -33,10 +34,7 @@ function ActivityIndicator({ user, label }) {
     <div className={styles.activityBadge}>
       <span
         className={styles.activityAvatar}
-        style={{
-          backgroundColor: user.color || 'var(--surface-muted)',
-          backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none',
-        }}
+        style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
         aria-hidden="true"
       >
         {!user.avatar_url && getInitial(user.display_name)}

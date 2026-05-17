@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLocale } from '../../contexts/LocaleContext';
+import { getAvatarSurfaceStyle, getBoardCoverStyle } from '../../utils/imagePlaceholders';
 import { t } from '../../utils/i18n';
 import Button from '../Ui/Button';
 import NotificationsMenu from '../NotificationsMenu/NotificationsMenu';
@@ -237,11 +238,11 @@ export default function Layout({
             onClick={() => boardImageInputRef.current?.click()}
             aria-label={t('changeBoardImage', language)}
           >
-            {board?.image_path ? (
-              <img src={board.image_path} alt={t('boardLogo', language)} className={styles.logoImg} />
-            ) : (
-              <div className={styles.logo}>{getInitial(board?.name || 'FlowBoard')}</div>
-            )}
+            <div
+              className={`${styles.logo} ${styles.logoImg}`}
+              style={getBoardCoverStyle(board?.image_path)}
+              aria-hidden="true"
+            />
           </button>
           <input
             ref={boardImageInputRef}
@@ -351,11 +352,7 @@ export default function Layout({
                     <div
                       key={user.guest_id}
                       className={styles.onlineAvatar}
-                      style={{
-                        backgroundColor: user.color,
-                        backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none',
-                        backgroundSize: 'cover',
-                      }}
+                      style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
                       title={user.display_name}
                     >
                       {!user.avatar_url && getInitial(user.display_name)}
@@ -383,11 +380,7 @@ export default function Layout({
                       <div key={user.guest_id} className={styles.onlineRow}>
                         <div
                           className={styles.onlineAvatarLarge}
-                          style={{
-                            backgroundColor: user.color,
-                            backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none',
-                            backgroundSize: 'cover',
-                          }}
+                          style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
                         >
                           {!user.avatar_url && getInitial(user.display_name)}
                         </div>
@@ -464,11 +457,7 @@ export default function Layout({
             type="button"
             className={styles.profileBtn}
             onClick={() => setProfileOpen(true)}
-            style={{
-              backgroundColor: identity?.color,
-              backgroundImage: identity?.avatarUrl ? `url(${identity.avatarUrl})` : 'none',
-              backgroundSize: 'cover',
-            }}
+            style={getAvatarSurfaceStyle(identity?.avatarUrl, identity?.color)}
             aria-label={t('openProfile', language)}
           >
             {!identity?.avatarUrl && getInitial(identity?.displayName)}

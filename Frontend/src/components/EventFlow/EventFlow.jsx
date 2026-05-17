@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 
 import { getBoardEvents } from '../../api/boardsApi';
 import { useLocale } from '../../contexts/LocaleContext';
+import { getAvatarSurfaceStyle } from '../../utils/imagePlaceholders';
 import { t } from '../../utils/i18n';
 import styles from './EventFlow.module.css';
 const COMPACT_GROUP_WINDOW_MS = 90 * 1000;
@@ -317,13 +318,10 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                     <div className={styles.actor}>
                       <div
                         className={styles.avatar}
-                        style={{
-                          backgroundColor: actorGroup.actor.color,
-                          backgroundImage: actorGroup.actor.avatar_url
-                            ? `url(${actorGroup.actor.avatar_url})`
-                            : 'none',
-                          backgroundSize: 'cover',
-                        }}
+                        style={getAvatarSurfaceStyle(
+                          actorGroup.actor.avatar_url,
+                          actorGroup.actor.color,
+                        )}
                       >
                         {!actorGroup.actor.avatar_url &&
                           actorGroup.actor.display_name.charAt(0).toUpperCase()}
