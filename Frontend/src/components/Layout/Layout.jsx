@@ -16,12 +16,12 @@ function getInitial(name = 'Guest') {
   return name.trim().charAt(0).toUpperCase() || 'G';
 }
 
-function formatAbsoluteDate(value) {
+function formatAbsoluteDate(value, language) {
   if (!value) {
-    return 'No activity yet';
+    return t('noActivityYet', language);
   }
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : 'en-US', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -29,9 +29,9 @@ function formatAbsoluteDate(value) {
   }).format(new Date(value));
 }
 
-function formatDuration(ms) {
+function formatDuration(ms, language) {
   if (!Number.isFinite(ms)) {
-    return 'Unknown';
+    return t('unknown', language);
   }
 
   const absMs = Math.abs(ms);
@@ -50,38 +50,38 @@ function formatDuration(ms) {
   return `${minutes}m`;
 }
 
-function getLifecycleState(timeLeftMs) {
+function getLifecycleState(timeLeftMs, language) {
   if (!Number.isFinite(timeLeftMs) || timeLeftMs <= 0) {
     return {
-      label: 'Expiring now',
+      label: t('expiringNow', language),
       toneClassName: styles.lifecycleDanger,
-      helper: 'The board is at the end of its inactivity window.',
+      helper: t('boardAtEndOfInactivityWindow', language),
     };
   }
 
   if (timeLeftMs <= DAY_IN_MS) {
     return {
-      label: 'Expires within a day',
+      label: t('expiresWithinDay', language),
       toneClassName: styles.lifecycleWarning,
-      helper: 'A fresh task update will extend the board lifetime.',
+      helper: t('freshTaskExtendsLifetime', language),
     };
   }
 
   return {
-    label: 'Healthy workspace',
+    label: t('healthyWorkspace', language),
     toneClassName: styles.lifecycleSuccess,
-    helper: 'The board still has plenty of runway left.',
+    helper: t('plentyOfRunwayLeft', language),
   };
 }
 
-function buildLifecycleSnapshot(board, now) {
+function buildLifecycleSnapshot(board, now, language) {
   if (!board?.last_activity_at) {
     return {
-      lastActivityLabel: 'No activity yet',
-      expiresAtLabel: 'Waiting for first action',
-      retentionLabel: `${board?.expires_after_days ?? 3} inactive days`,
-      timeLeftLabel: 'Starts after first task action',
-      state: getLifecycleState(Number.NaN),
+      lastActivityLabel: t('noActivityYet', language),
+      expiresAtLabel: t('waitingForFirstAction', language),
+      retentionLabel: `${board?.expires_after_days ?? 3} ${t('daysLeft', language)}`,
+      timeLeftLabel: t('startsAfterFirstTaskAction', language),
+      state: getLifecycleState(Number.NaN, language),
     };
   }
 
@@ -90,12 +90,14 @@ function buildLifecycleSnapshot(board, now) {
   const timeLeftMs = expiresAtMs - now;
 
   return {
-    lastActivityLabel: formatAbsoluteDate(board.last_activity_at),
-    expiresAtLabel: formatAbsoluteDate(expiresAtMs),
-    retentionLabel: `${board.expires_after_days ?? 3} inactive days`,
+    lastActivityLabel: formatAbsoluteDate(board.last_activity_at, language),
+    expiresAtLabel: formatAbsoluteDate(expiresAtMs, language),
+    retentionLabel: `${board.expires_after_days ?? 3} ${t('daysLeft', language)}`,
     timeLeftLabel:
-      timeLeftMs > 0 ? `${formatDuration(timeLeftMs)} left` : `${formatDuration(timeLeftMs)} overdue`,
-    state: getLifecycleState(timeLeftMs),
+      timeLeftMs > 0
+        ? `${formatDuration(timeLeftMs, language)} ${t('leftSuffix', language)}`
+        : `${formatDuration(timeLeftMs, language)} ${t('overdueSuffix', language)}`,
+    state: getLifecycleState(timeLeftMs, language),
   };
 }
 
@@ -189,19 +191,19 @@ export default function Layout({
     };
   }, [notificationsOpen, onlineOpen, onCloseNotifications]);
 
-  const lifecycle = useMemo(() => buildLifecycleSnapshot(board, now), [board, now]);
+  const lifecycle = useMemo(() => buildLifecycleSnapshot(board, now, language), [board, now, language]);
 
   const displayedUsers = onlineUsers.slice(0, 3);
   const extraUsers = Math.max(0, onlineUsers.length - 3);
   const showOnlineControl = onlineUsers.length > 0 || realtimeStatus !== 'connected';
   const realtimeLabel =
     realtimeStatus === 'connected'
-      ? `${onlineUsers.length} online`
+      ? `${onlineUsers.length} ${t('online', language).toLowerCase()}`
       : realtimeStatus === 'connecting'
-        ? 'Connecting…'
+        ? t('connecting', language)
         : realtimeStatus === 'error'
-          ? 'Realtime offline'
-          : 'Disconnected';
+          ? t('realtimeOffline', language)
+          : t('disconnected', language);
 
   return (
     <div className={styles.page}>
@@ -211,10 +213,10 @@ export default function Layout({
             type="button"
             className={styles.boardLogoButton}
             onClick={() => boardImageInputRef.current?.click()}
-            aria-label="Change board image"
+            aria-label={t('changeBoardImage', language)}
           >
             {board?.image_path ? (
-              <img src={board.image_path} alt="Board Logo" className={styles.logoImg} />
+              <img src={board.image_path} alt={t('boardLogo', language)} className={styles.logoImg} />
             ) : (
               <div className={styles.logo}>{getInitial(board?.name || 'FlowBoard')}</div>
             )}
@@ -230,7 +232,7 @@ export default function Layout({
           <div className={styles.titleBlock}>
             <p className={styles.serviceName}>FlowBoard</p>
             <div className={styles.boardTitleRow}>
-              <h1 className={styles.boardTitle}>{board?.name ?? 'Untitled board'}</h1>
+              <h1 className={styles.boardTitle}>{board?.name ?? t('untitledBoard', language)}</h1>
 
               <div
                 className={styles.infoWrap}
@@ -246,18 +248,18 @@ export default function Layout({
                 <button
                   type="button"
                   className={styles.infoButton}
-                  aria-label="Board lifetime details"
+                  aria-label={t('boardLifetimeDetails', language)}
                   aria-expanded={boardInfoOpen}
                 >
                   !
                 </button>
 
                 {boardInfoOpen ? (
-                  <div className={styles.infoCard} role="note" aria-label="Board lifetime details">
+                  <div className={styles.infoCard} role="note" aria-label={t('boardLifetimeDetails', language)}>
                     <div className={styles.infoHeader}>
                       <div>
-                        <p className={styles.infoEyebrow}>Board lifecycle</p>
-                        <h2>Temporary workspace status</h2>
+                        <p className={styles.infoEyebrow}>{t('boardLifecycle', language)}</p>
+                        <h2>{t('temporaryWorkspaceStatus', language)}</h2>
                       </div>
                       <span className={`${styles.lifecycleBadge} ${lifecycle.state.toneClassName}`}>
                         {lifecycle.state.label}
@@ -266,19 +268,19 @@ export default function Layout({
 
                     <div className={styles.infoGrid}>
                       <article className={styles.infoStatCard}>
-                        <span>Last activity</span>
+                        <span>{t('lastActivity', language)}</span>
                         <strong>{lifecycle.lastActivityLabel}</strong>
-                        <p>Most recent board-changing action across tasks, rules, and queue events.</p>
+                        <p>{t('mostRecentBoardAction', language)}</p>
                       </article>
 
                       <article className={styles.infoStatCard}>
-                        <span>Retention window</span>
+                        <span>{t('retentionWindow', language)}</span>
                         <strong>{lifecycle.retentionLabel}</strong>
-                        <p>Every fresh task update refreshes the inactivity timer.</p>
+                        <p>{t('everyFreshTaskRefreshesTimer', language)}</p>
                       </article>
 
                       <article className={styles.infoStatCard}>
-                        <span>Time remaining</span>
+                        <span>{t('timeRemaining', language)}</span>
                         <strong>{lifecycle.timeLeftLabel}</strong>
                         <p>{lifecycle.state.helper}</p>
                       </article>
@@ -286,19 +288,19 @@ export default function Layout({
 
                     <div className={styles.infoFooter}>
                       <div className={styles.infoFooterHeader}>
-                        <span>Next cleanup checkpoint</span>
+                        <span>{t('nextCleanupCheckpoint', language)}</span>
                         <strong>{lifecycle.expiresAtLabel}</strong>
                       </div>
 
                       <div className={styles.lockedRetention}>
                         <div className={styles.lockedRetentionCopy}>
-                          <span>Retention preset</span>
-                          <p>Long-lived boards will unlock once account workspaces land.</p>
+                          <span>{t('retentionPreset', language)}</span>
+                          <p>{t('longLivedBoardsUnlockSoon', language)}</p>
                         </div>
 
                         <button type="button" className={styles.lockedSelect} disabled>
-                          <span>{board?.expires_after_days ?? 3} days MVP board</span>
-                          <span className={styles.lockedSelectMeta}>Auth soon</span>
+                          <span>{board?.expires_after_days ?? 3} {t('mvpBoardDays', language)}</span>
+                          <span className={styles.lockedSelectMeta}>{t('authSoon', language)}</span>
                         </button>
                       </div>
                     </div>
@@ -322,7 +324,7 @@ export default function Layout({
                   className={`${styles.realtimeDot} ${styles[`status${realtimeStatus[0]?.toUpperCase?.() + realtimeStatus.slice(1)}`] || ''}`}
                 ></span>
                 <div className={styles.onlineLabelBlock}>
-                  <span className={styles.onlineLabel}>Live now</span>
+                  <span className={styles.onlineLabel}>{t('liveNow', language)}</span>
                   <span className={styles.onlineValue}>{realtimeLabel}</span>
                 </div>
                 <div className={styles.onlineAvatars}>
@@ -341,7 +343,7 @@ export default function Layout({
                     </div>
                   ))}
                   {displayedUsers.length === 0 ? (
-                    <span className={styles.onlineFallback}>Waiting for collaborators</span>
+                    <span className={styles.onlineFallback}>{t('waitingForCollaborators', language)}</span>
                   ) : null}
                   {extraUsers > 0 ? <div className={styles.onlineExtra}>+{extraUsers}</div> : null}
                 </div>
@@ -355,7 +357,7 @@ export default function Layout({
                   <div className={styles.onlineList}>
                     {onlineUsers.length === 0 ? (
                       <div className={styles.onlineEmpty}>
-                        We&apos;ll show live collaborators here as soon as the realtime channel connects.
+                        {t('willShowCollaboratorsWhenRealtimeConnects', language)}
                       </div>
                     ) : null}
                     {onlineUsers.map((user) => (
@@ -373,7 +375,7 @@ export default function Layout({
                         <div>
                           <div className={styles.onlineName}>{user.display_name}</div>
                           <div className={styles.onlineMeta}>
-                            {user.guest_id === identity?.id ? 'You' : 'Guest collaborator'}
+                            {user.guest_id === identity?.id ? t('you', language) : t('guestCollaborator', language)}
                           </div>
                         </div>
                       </div>
@@ -390,7 +392,7 @@ export default function Layout({
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
               </svg>
             </ToolbarIcon>
-            <span className="sr-only">Activity</span>
+            <span className="sr-only">{t('activity', language)}</span>
           </Button>
 
           <Button variant="ghost" size="sm" onClick={() => setShareOpen(true)} className={styles.iconBtn}>
@@ -400,7 +402,7 @@ export default function Layout({
                 <path d="M14 11a5 5 0 0 0-7.07 0L3.4 14.54a5 5 0 0 0 7.07 7.07L11.5 19.57" />
               </svg>
             </ToolbarIcon>
-            <span className="sr-only">Share</span>
+            <span className="sr-only">{t('share', language)}</span>
           </Button>
 
           <div className={styles.menu} ref={menuRef}>
@@ -417,7 +419,7 @@ export default function Layout({
                 </svg>
               </ToolbarIcon>
               {unreadCount > 0 ? <span className={styles.notificationsBadge}>{unreadCount}</span> : null}
-              <span className="sr-only">Notifications</span>
+              <span className="sr-only">{t('notifications', language)}</span>
             </Button>
             {notificationsOpen ? (
               <NotificationsMenu
@@ -434,7 +436,7 @@ export default function Layout({
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
-            <span>Admin</span>
+            <span>{t('admin', language)}</span>
           </Button>
 
           <button
@@ -446,7 +448,7 @@ export default function Layout({
               backgroundImage: identity?.avatarUrl ? `url(${identity.avatarUrl})` : 'none',
               backgroundSize: 'cover',
             }}
-            aria-label="Open profile"
+            aria-label={t('openProfile', language)}
           >
             {!identity?.avatarUrl && getInitial(identity?.displayName)}
           </button>
@@ -454,7 +456,7 @@ export default function Layout({
       </header>
 
       <div className={styles.toolbarDock}>
-        <section className={styles.toolbar} aria-label="Task search and filters">
+        <section className={styles.toolbar} aria-label={t('taskSearchAndFilters', language)}>
           <label className={styles.searchField}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"></circle>

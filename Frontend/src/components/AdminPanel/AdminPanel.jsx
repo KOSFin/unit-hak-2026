@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import Button from '../Ui/Button';
 import Input from '../Ui/Input';
 import RulesPanel from '../RulesPanel/RulesPanel';
@@ -19,6 +21,7 @@ export default function AdminPanel({
   onDeleteRule,
   onSendDemoTask,
 }) {
+  const { language } = useLocale();
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [drafts, setDrafts] = useState({});
 
@@ -35,18 +38,18 @@ export default function AdminPanel({
     <div className={styles.stack}>
       <section className={styles.panel}>
         <div>
-          <p className={styles.kicker}>Board setup</p>
-          <h2>Columns</h2>
+          <p className={styles.kicker}>{t('boardSetup', language)}</p>
+          <h2>{t('columns', language)}</h2>
         </div>
         <div className={styles.createRow}>
           <Input
-            label="Add column"
+            label={t('addColumn', language)}
             value={newColumnTitle}
             onChange={(event) => setNewColumnTitle(event.target.value)}
-            placeholder="Review"
+            placeholder={t('addColumnPlaceholder', language)}
           />
           <Button onClick={handleCreateColumn} disabled={pending}>
-            Add
+            {t('add', language)}
           </Button>
         </div>
 
@@ -54,7 +57,7 @@ export default function AdminPanel({
           {columns.map((column) => (
             <div key={column.id} className={styles.columnRow}>
               <Input
-                label={column.is_default ? 'Default column' : 'Custom column'}
+                label={column.is_default ? t('defaultColumn', language) : t('customColumn', language)}
                 value={drafts[column.id] ?? column.title}
                 onChange={(event) =>
                   setDrafts((current) => ({ ...current, [column.id]: event.target.value }))
@@ -67,7 +70,7 @@ export default function AdminPanel({
                   onClick={() => onRenameColumn(column.id, drafts[column.id] ?? column.title)}
                   disabled={pending}
                 >
-                  Save
+                  {t('save', language)}
                 </Button>
                 <Button
                   variant="danger"
@@ -75,7 +78,7 @@ export default function AdminPanel({
                   onClick={() => onDeleteColumn(column.id)}
                   disabled={pending}
                 >
-                  Delete
+                  {t('delete', language)}
                 </Button>
               </div>
             </div>

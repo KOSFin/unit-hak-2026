@@ -1,9 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
+
 import { getBoardEvents } from '../../api/boardsApi';
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import styles from './EventFlow.module.css';
 const COMPACT_GROUP_WINDOW_MS = 90 * 1000;
 
-function describeEvent(event) {
+function describeEvent(event, language) {
   const task = event.payload?.task;
   const notification = event.payload?.notification;
   const incomingTask = event.payload?.incoming_task;
@@ -12,101 +15,101 @@ function describeEvent(event) {
 
   if (event.type === 'TASK_CREATED') {
     return {
-      title: 'Task created',
-      message: task?.title ? `"${task.title}" entered the board.` : 'A new task entered the board.',
+      title: t('taskCreated', language),
+      message: task?.title ? `"${task.title}" ${t('newTaskEnteredBoard', language).toLowerCase()}` : t('newTaskEnteredBoard', language),
       guestId: task?.guest_id,
     };
   }
 
   if (event.type === 'TASK_UPDATED') {
     return {
-      title: 'Task updated',
-      message: task?.title ? `"${task.title}" was edited.` : 'A task was edited.',
+      title: t('taskUpdated', language),
+      message: task?.title ? `"${task.title}" ${t('taskWasEdited', language).toLowerCase()}` : t('taskWasEdited', language),
       guestId: task?.guest_id,
     };
   }
 
   if (event.type === 'TASK_MOVED') {
     return {
-      title: 'Task moved',
+      title: t('taskMoved', language),
       message: task?.title
-        ? `"${task.title}" moved to ${task.status || 'a new column'}.`
-        : 'A task changed column.',
+        ? `"${task.title}" moved to ${task.status || t('movedToNewColumn', language)}.`
+        : t('taskChangedColumn', language),
       guestId: task?.guest_id,
     };
   }
 
   if (event.type === 'TASK_DELETED') {
     return {
-      title: 'Task removed',
-      message: task?.title ? `"${task.title}" left the board.` : 'A task was removed.',
+      title: t('taskRemoved', language),
+      message: task?.title ? `"${task.title}" ${t('taskLeftBoard', language).toLowerCase()}` : t('taskDeleted', language),
       guestId: task?.guest_id,
     };
   }
 
   if (event.type === 'NOTIFICATION_CREATED') {
     return {
-      title: 'Notification delivered',
-      message: notification?.message || notification?.title || 'A new notification was generated.',
+      title: t('notificationDelivered', language),
+      message: notification?.message || notification?.title || t('newNotificationGenerated', language),
     };
   }
 
   if (event.type === 'INCOMING_TASK_RECEIVED') {
     return {
-      title: 'Incoming task received',
+      title: t('incomingTaskReceived', language),
       message: incomingTask?.external_id
         ? `Payload ${incomingTask.external_id} entered the queue.`
-        : 'A payload entered the queue.',
+        : t('payloadEnteredQueue', language),
     };
   }
 
   if (event.type === 'INCOMING_TASK_VALIDATED') {
     return {
-      title: 'Incoming task validated',
-      message: 'The payload passed validation and is ready for worker processing.',
+      title: t('incomingTaskValidated', language),
+      message: t('payloadPassedValidation', language),
     };
   }
 
   if (event.type === 'INCOMING_TASK_PROCESSED') {
     return {
-      title: 'Incoming task processed',
+      title: t('incomingTaskProcessed', language),
       message: task?.title
         ? `Worker turned the payload into "${task.title}".`
-        : 'Worker created a task from the payload.',
+        : t('workerCreatedTaskFromPayload', language),
     };
   }
 
   if (event.type === 'AUTOMATION_TRIGGERED') {
     return {
-      title: 'Automation triggered',
-      message: message || 'A rule reacted to the latest board event.',
+      title: t('automationTriggered', language),
+      message: message || t('ruleReactedToLatestEvent', language),
     };
   }
 
   if (event.type === 'AUTOMATION_RULE_CREATED') {
     return {
-      title: 'Rule created',
+      title: t('ruleCreated', language),
       message: rule?.name ? `"${rule.name}" is now active for this board.` : 'A rule was created.',
     };
   }
 
   if (event.type === 'AUTOMATION_RULE_UPDATED') {
     return {
-      title: 'Rule updated',
+      title: t('ruleUpdated', language),
       message: rule?.name ? `"${rule.name}" changed its behavior.` : 'A rule was updated.',
     };
   }
 
   if (event.type === 'AUTOMATION_RULE_DELETED') {
     return {
-      title: 'Rule deleted',
+      title: t('ruleDeleted', language),
       message: rule?.name ? `"${rule.name}" was removed.` : 'A rule was deleted.',
     };
   }
 
   return {
     title: event.type.replaceAll('_', ' '),
-    message: message || 'System activity recorded for this board.',
+    message: message || t('systemActivityRecorded', language),
     guestId: task?.guest_id,
   };
 }
@@ -139,13 +142,13 @@ function getClusterFingerprint(cluster) {
   return `${cluster.actorId || 'system'}:${cluster.source}`;
 }
 
-function buildEventClusters(events, onlineUsers) {
+function buildEventClusters(events, onlineUsers, language) {
   const usersMap = new Map(onlineUsers.map((user) => [user.guest_id, user]));
 
   return events.reduce((clusters, event) => {
     const actorId = getEventActorId(event);
     const source = event.source || 'SYSTEM';
-    const details = describeEvent(event);
+    const details = describeEvent(event, language);
     const actorFromPayload = event.payload?.actor || null;
     const previousCluster = clusters[clusters.length - 1];
 
@@ -172,8 +175,8 @@ function buildEventClusters(events, onlineUsers) {
   }, []);
 }
 
-function buildCompactGroups(events, onlineUsers) {
-  const clusters = buildEventClusters(events, onlineUsers);
+function buildCompactGroups(events, onlineUsers, language) {
+  const clusters = buildEventClusters(events, onlineUsers, language);
   const grouped = [];
 
   clusters.forEach((cluster) => {
@@ -196,30 +199,30 @@ function buildCompactGroups(events, onlineUsers) {
   return grouped;
 }
 
-function summarizeEventBatch(events) {
-  const titles = [...new Set(events.map((event) => describeEvent(event).title))];
+function summarizeEventBatch(events, language) {
+  const titles = [...new Set(events.map((event) => describeEvent(event, language).title))];
   if (titles.length <= 1) {
-    return titles[0] || 'Update';
+    return titles[0] || t('update', language);
   }
   if (titles.length === 2) {
     return `${titles[0]} + ${titles[1]}`;
   }
-  return `${titles[0]} + ${titles.length - 1} more`;
+  return `${titles[0]} + ${titles.length - 1} ${t('more', language)}`;
 }
 
-function summarizeEventMessages(events) {
-  const messages = [...new Set(events.map((event) => describeEvent(event).message))];
+function summarizeEventMessages(events, language) {
+  const messages = [...new Set(events.map((event) => describeEvent(event, language).message))];
   if (messages.length <= 2) {
     return messages.join(' ');
   }
-  return `${messages.slice(0, 2).join(' ')} +${messages.length - 2} more updates.`;
+  return `${messages.slice(0, 2).join(' ')} +${messages.length - 2} ${t('moreUpdates', language)}.`;
 }
 
-function mergeRenderedGroups(groups, onlineUsers) {
+function mergeRenderedGroups(groups, onlineUsers, language) {
   const rendered = [];
 
   groups.forEach((group) => {
-    const clusters = buildCompactGroups(group.events, onlineUsers);
+    const clusters = buildCompactGroups(group.events, onlineUsers, language);
     const previous = rendered[rendered.length - 1];
     const firstCluster = clusters[0];
     const previousLastCluster = previous?.clusters?.[previous.clusters.length - 1];
@@ -251,9 +254,10 @@ function mergeRenderedGroups(groups, onlineUsers) {
 }
 
 export default function EventFlow({ boardId, onlineUsers = [] }) {
+  const { language } = useLocale();
   const [groups, setGroups] = useState([]);
   const containerRef = useRef(null);
-  const renderedGroups = mergeRenderedGroups(groups, onlineUsers);
+  const renderedGroups = mergeRenderedGroups(groups, onlineUsers, language);
 
   useEffect(() => {
     async function load() {
@@ -261,14 +265,14 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
         const data = await getBoardEvents(boardId);
         setGroups(data);
       } catch (err) {
-        console.error("Failed to load events", err);
+        console.error(t('failedToLoadEvents', language), err);
       }
     }
     load();
     
     window.addEventListener('board-event-flow-update', load);
     return () => window.removeEventListener('board-event-flow-update', load);
-  }, [boardId]);
+  }, [boardId, language]);
 
   // Flatten all clusters for compact timeline view with grouping by actor
   const allClusters = renderedGroups.flatMap((g) => g.clusters);
@@ -296,12 +300,14 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <h2 className={styles.title}>Activity</h2>
-        <p className={styles.subtitle}>{allClusters.length} event{allClusters.length === 1 ? '' : 's'}</p>
+        <h2 className={styles.title}>{t('activity', language)}</h2>
+        <p className={styles.subtitle}>
+          {allClusters.length} {allClusters.length === 1 ? t('eventCount', language) : t('eventCountMany', language)}
+        </p>
       </div>
       <div className={styles.content} ref={containerRef}>
         {allClusters.length === 0 ? (
-           <p className={styles.empty}>No activity yet.</p>
+           <p className={styles.empty}>{t('noActivityYet', language)}</p>
         ) : (
           <div className={styles.timeline}>
             {groupedByActor.map((actorGroup) => (
@@ -325,7 +331,7 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                       <span className={styles.actorName}>{actorGroup.actor.display_name}</span>
                     </div>
                   ) : (
-                    <span className={styles.systemLabel}>System</span>
+                    <span className={styles.systemLabel}>{t('system', language)}</span>
                   )}
                 </div>
                 
@@ -343,8 +349,8 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                         </div>
                       </div>
                       <div className={styles.eventText}>
-                        <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events)}</div>
-                        <p className={styles.eventMessage}>{summarizeEventMessages(cluster.events)}</p>
+                        <div className={styles.eventTitle}>{summarizeEventBatch(cluster.events, language)}</div>
+                        <p className={styles.eventMessage}>{summarizeEventMessages(cluster.events, language)}</p>
                       </div>
                     </div>
                   </div>

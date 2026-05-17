@@ -30,6 +30,14 @@ export default function Board({
   const dragStartTasksRef = useRef(null);
   const ignoreSyncRef = useRef(false);
 
+  const getSortedColumnTasks = useCallback(
+    (taskList, columnId) =>
+      taskList
+        .filter((task) => task.column_id === columnId)
+        .sort((left, right) => (left.position ?? 0) - (right.position ?? 0)),
+    [],
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -87,16 +95,15 @@ export default function Board({
         targetColumnId = overTask.column_id;
       }
 
-      if (activeTask.column_id === targetColumnId) {
-        return prev;
-      }
-
       let targetIndex;
       if (isOverColumn) {
-        targetIndex = prev.filter((t) => t.column_id === targetColumnId).length;
+        targetIndex = getSortedColumnTasks(prev, targetColumnId).length;
       } else {
-        const columnTasks = prev.filter((t) => t.column_id === targetColumnId);
+        const columnTasks = getSortedColumnTasks(prev, targetColumnId);
         targetIndex = columnTasks.findIndex((t) => t.id === overIdStr);
+        if (targetIndex === -1) {
+          return prev;
+        }
 
         const overRect = over.rect;
         if (overRect && active.rect?.current?.translated) {
@@ -111,7 +118,7 @@ export default function Board({
 
       return reorderTasks(prev, columns, activeIdStr, targetColumnId, targetIndex);
     });
-  }, [columns]);
+  }, [columns, getSortedColumnTasks]);
 
   const handleDragEnd = useCallback(({ active, over }) => {
     const snapshot = dragStartTasksRef.current;
@@ -129,8 +136,6 @@ export default function Board({
     }
 
     const activeIdStr = String(active.id).replace('task:', '');
-    const overIdStr = String(over.id).replace('task:', '').replace('column:', '');
-
     const activeTaskOriginal = snapshot.find((t) => t.id === activeIdStr);
     if (!activeTaskOriginal) {
         setActiveTaskSnapshot(null);
@@ -147,48 +152,19 @@ export default function Board({
         return tasks;
       }
 
-      const isOverColumn = String(over.id).startsWith('column:');
-      let targetColumnId;
-      if (isOverColumn) {
-        targetColumnId = overIdStr;
-      } else {
-        const overTask = currentTasks.find((t) => t.id === overIdStr);
-        if (!overTask) {
-           setActiveId(null);
-           return tasks;
-        }
-        targetColumnId = overTask.column_id;
+      const targetColumnId = activeTaskCurrent.column_id;
+      const finalColumnTasks = getSortedColumnTasks(currentTasks, targetColumnId);
+      const finalIndex = finalColumnTasks.findIndex((task) => task.id === activeIdStr);
+      if (finalIndex === -1) {
+        setActiveId(null);
+        return tasks;
       }
 
-      let targetIndex;
-      const columnTasks = currentTasks.filter((t) => t.column_id === targetColumnId);
-      
-      if (isOverColumn) {
-          targetIndex = columnTasks.length;
-          if (activeTaskCurrent.column_id === targetColumnId) {
-             targetIndex = Math.max(0, targetIndex - 1);
-          }
-      } else {
-          targetIndex = columnTasks.findIndex((t) => t.id === overIdStr);
-
-          if (activeTaskCurrent.column_id !== targetColumnId) {
-             const overRect = over.rect;
-             if (overRect && active.rect?.current?.translated) {
-               const overMidY = overRect.top + overRect.height / 2;
-               const activeCenterY =
-                 active.rect.current.translated.top + active.rect.current.translated.height / 2;
-               if (activeCenterY > overMidY) {
-                 targetIndex += 1;
-               }
-             }
-          }
-      }
-
-      const finalTasks = reorderTasks(currentTasks, columns, activeIdStr, targetColumnId, targetIndex);
-      
+      const originalColumnTasks = getSortedColumnTasks(snapshot, activeTaskOriginal.column_id);
+      const originalIndex = originalColumnTasks.findIndex((task) => task.id === activeIdStr);
       const noChange =
         targetColumnId === activeTaskOriginal.column_id &&
-        targetIndex === snapshot.filter(t => t.column_id === targetColumnId).findIndex(t => t.id === activeIdStr);
+        finalIndex === originalIndex;
 
       if (noChange) {
         setActiveId(null);
@@ -197,17 +173,14 @@ export default function Board({
 
       ignoreSyncRef.current = true;
       setActiveId(null);
-      
-      const finalColumnTasks = finalTasks.filter(t => t.column_id === targetColumnId);
-      const finalIndex = finalColumnTasks.findIndex(t => t.id === activeIdStr);
 
       setTimeout(() => {
          onMoveTask(activeTaskOriginal, targetColumnId, finalIndex);
       }, 0);
 
-      return finalTasks;
+      return currentTasks;
     });
-  }, [columns, tasks, onMoveTask, onDragEndEmit]);
+  }, [getSortedColumnTasks, tasks, onMoveTask, onDragEndEmit]);
 
   const handleDragCancel = useCallback(() => {
     dragStartTasksRef.current = null;

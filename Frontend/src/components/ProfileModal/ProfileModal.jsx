@@ -26,7 +26,7 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
       const res = await uploadImage(file);
       setAvatarUrl(res.url);
     } catch {
-      alert("Failed to upload avatar");
+      alert(t('failedToUploadAvatar', language));
     } finally {
       setPending(false);
     }
@@ -49,7 +49,7 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
       });
       onUpdate(updated);
     } catch {
-      alert("Failed to save profile");
+      alert(t('failedToSaveProfile', language));
     } finally {
       setPending(false);
     }
@@ -76,7 +76,7 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
             onClick={() => fileInputRef.current?.click()}
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className={styles.avatarImg} />
+              <img src={avatarUrl} alt={t('avatar', language)} className={styles.avatarImg} />
             ) : (
               <span className={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</span>
             )}
@@ -107,19 +107,19 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
               type="button"
               className={`${styles.languageBtn} ${language === 'ru' ? styles.languageBtnActive : ''}`}
               onClick={() => setLanguage('ru')}
-              title="Русский"
+              title={t('russian', language)}
             >
               <span className={styles.flag}>🇷🇺</span>
-              <span>Русский</span>
+              <span>{t('russian', language)}</span>
             </button>
             <button
               type="button"
               className={`${styles.languageBtn} ${language === 'en' ? styles.languageBtnActive : ''}`}
               onClick={() => setLanguage('en')}
-              title="English"
+              title={t('english', language)}
             >
               <span className={styles.flag}>🇬🇧</span>
-              <span>English</span>
+              <span>{t('english', language)}</span>
             </button>
           </div>
         </div>

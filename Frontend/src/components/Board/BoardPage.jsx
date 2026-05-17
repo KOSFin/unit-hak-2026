@@ -15,6 +15,9 @@ import { uploadImage } from '../../api/uploadsApi';
 import { createRealtimeSocket } from '../../realtime/socket';
 import { createCrossTabSync } from '../../utils/crossTabSync';
 import { getGuestIdentity } from '../../utils/guest';
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
+import { reorderTasks } from '../../utils/reorderTasks';
 import AdminPanel from '../AdminPanel/AdminPanel';
 import EventFlow from '../EventFlow/EventFlow';
 import Layout from '../Layout/Layout';
@@ -83,6 +86,7 @@ function buildActorSnapshot(identity) {
 export default function BoardPage() {
   const { publicBoardId } = useParams();
   const navigate = useNavigate();
+  const { language } = useLocale();
 
   const [board, setBoard] = useState(null);
   const [columns, setColumns] = useState([]);
@@ -187,7 +191,7 @@ export default function BoardPage() {
         setRules([]);
         setIncomingTasks([]);
         setNotifications([]);
-        setError(caughtError.response?.data?.detail || 'Board not found');
+        setError(caughtError.response?.data?.detail || t('boardNotFound', language));
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -199,7 +203,7 @@ export default function BoardPage() {
     return () => {
       cancelled = true;
     };
-  }, [publicBoardId]);
+  }, [publicBoardId, language]);
 
   useEffect(() => {
     if (!board) {
@@ -479,17 +483,17 @@ export default function BoardPage() {
         handleCloseTaskModal();
         window.dispatchEvent(new Event('board-event-flow-update'));
       } catch (caughtError) {
-        alert(caughtError.response?.data?.detail || 'Failed to save task');
+        alert(caughtError.response?.data?.detail || t('failedToSaveTask', language));
       } finally {
         setTaskPending(false);
       }
     },
-    [activeTask, board, handleCloseTaskModal, identity],
+    [activeTask, board, handleCloseTaskModal, identity, language],
   );
 
   const handleDeleteTask = useCallback(
     async (task) => {
-      if (!board || !window.confirm('Delete task?')) {
+      if (!board || !window.confirm(t('deleteTaskConfirm', language))) {
         return;
       }
 
@@ -500,12 +504,12 @@ export default function BoardPage() {
         handleCloseTaskModal();
         window.dispatchEvent(new Event('board-event-flow-update'));
       } catch (caughtError) {
-        alert(caughtError.response?.data?.detail || 'Failed to delete task');
+        alert(caughtError.response?.data?.detail || t('failedToDeleteTask', language));
       } finally {
         setTaskPending(false);
       }
     },
-    [board, handleCloseTaskModal],
+    [board, handleCloseTaskModal, language],
   );
 
   const handleMoveTask = useCallback(
@@ -527,13 +531,16 @@ export default function BoardPage() {
           },
           board.id,
         );
-        setTasks((current) => current.map((item) => (item.id === moved.id ? moved : item)));
+        setTasks((current) => {
+          const reordered = reorderTasks(current, columns, task.id, targetColumnId, targetIndex);
+          return reordered.map((item) => (item.id === moved.id ? moved : item));
+        });
         window.dispatchEvent(new Event('board-event-flow-update'));
       } catch {
         refreshTasks(board.id).catch(() => null);
       }
     },
-    [board, identity, refreshTasks],
+    [board, columns, identity, refreshTasks],
   );
 
   const handleCreateColumn = useCallback(
@@ -581,12 +588,12 @@ export default function BoardPage() {
         setColumns((current) => current.filter((column) => column.id !== columnId));
         window.dispatchEvent(new Event('board-event-flow-update'));
       } catch (caughtError) {
-        alert(caughtError.response?.data?.detail || 'Failed to delete column');
+        alert(caughtError.response?.data?.detail || t('failedToDeleteColumn', language));
       } finally {
         setAdminPending(false);
       }
     },
-    [board],
+    [board, language],
   );
 
   const handleCreateRule = useCallback(
@@ -641,8 +648,8 @@ export default function BoardPage() {
           board_id: board.id,
           external_id: `demo-${Date.now()}`,
           raw_payload: {
-            title: 'Urgent queue task',
-            description: 'Created from the Event Flow demo panel.',
+            title: t('urgentQueueTask', language),
+            description: t('createdFromEventFlowDemo', language),
             tags: ['urgent', 'queue'],
           },
         });
@@ -652,7 +659,7 @@ export default function BoardPage() {
         setAdminPending(false);
       }
     },
-    [board],
+    [board, language],
   );
 
   const handleBoardImageUpdate = useCallback(
@@ -673,7 +680,7 @@ export default function BoardPage() {
         setBoard(updatedBoard);
         setColumns(updatedBoard.columns || []);
       } catch (caughtError) {
-        alert(caughtError.response?.data?.detail || 'Failed to update board image');
+        alert(caughtError.response?.data?.detail || t('failedToUpdateBoardImage', language));
       } finally {
         if (input) {
           input.value = '';
@@ -681,7 +688,7 @@ export default function BoardPage() {
         setAdminPending(false);
       }
     },
-    [board],
+    [board, language],
   );
 
   const filteredTasks = useMemo(() => {
@@ -761,8 +768,8 @@ export default function BoardPage() {
       <div className={styles.statePage}>
         <div className={styles.stateCard}>
           <p className={styles.stateEyebrow}>FlowBoard</p>
-          <h1>Loading board…</h1>
-          <p>We’re pulling the latest tasks, activity, and presence for this workspace.</p>
+          <h1>{t('loadingBoard', language)}</h1>
+          <p>{t('pullingLatestTasks', language)}</p>
         </div>
       </div>
     );
@@ -772,14 +779,12 @@ export default function BoardPage() {
     return (
       <div className={styles.statePage}>
         <div className={styles.stateCard}>
-          <p className={styles.stateEyebrow}>Board unavailable</p>
-          <h1>Board not found or already removed</h1>
-          <p>
-            This temporary board may have expired after inactivity, or the link may be incomplete.
-          </p>
+          <p className={styles.stateEyebrow}>{t('boardUnavailable', language)}</p>
+          <h1>{t('boardNotFoundOrRemoved', language)}</h1>
+          <p>{t('boardMayHaveExpired', language)}</p>
           <div className={styles.stateActions}>
             <button type="button" className={styles.secondaryButton} onClick={() => navigate('/')}>
-              Create a new board
+              {t('createNewBoard', language)}
             </button>
           </div>
         </div>
@@ -906,7 +911,7 @@ export default function BoardPage() {
       ) : null}
 
       {activeModal === 'admin' ? (
-        <Modal title="Admin Panel" onClose={() => setActiveModal(null)}>
+        <Modal title={t('adminPanel', language)} onClose={() => setActiveModal(null)}>
           <AdminPanel
             columns={columns}
             rules={rules}

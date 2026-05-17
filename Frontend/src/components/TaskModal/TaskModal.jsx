@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import Button from '../Ui/Button';
 import Badge from '../Ui/Badge';
 import Input from '../Ui/Input';
@@ -37,6 +39,7 @@ export default function TaskModal({
   onSubmit,
   onDelete,
 }) {
+  const { language } = useLocale();
   const [form, setForm] = useState(taskToForm(columns, task));
   const [errors, setErrors] = useState({});
   const [tagInput, setTagInput] = useState('');
@@ -109,7 +112,7 @@ export default function TaskModal({
 
   const handleSubmit = async () => {
     if (!form.title.trim()) {
-      setErrors({ title: 'Title is required' });
+      setErrors({ title: t('titleIsRequired', language) });
       return;
     }
 
@@ -128,40 +131,40 @@ export default function TaskModal({
 
   return (
     <Modal
-      title={task ? 'Edit task' : 'Create task'}
+      title={task ? t('editTask', language) : t('createTaskTitle', language)}
       onClose={onClose}
       footer={
         <div className={styles.footer}>
           {task ? (
             <Button variant="danger" onClick={() => onDelete(task)} disabled={pending}>
-              Delete
+              {t('delete', language)}
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t('cancel', language)}
           </Button>
           <Button onClick={handleSubmit} disabled={pending}>
-            {pending ? 'Saving…' : task ? 'Save changes' : 'Create task'}
+            {pending ? t('saving', language) : task ? t('saveChanges', language) : t('createTask', language)}
           </Button>
         </div>
       }
     >
       <div className={styles.grid}>
         <Input
-          label="Title"
+          label={t('taskTitle', language)}
           value={form.title}
           onChange={handleChange('title')}
           error={errors.title}
-          placeholder="Add a clear task title"
+          placeholder={t('addClearTaskTitle', language)}
         />
-        <Select label="Priority" value={form.priority} onChange={handleChange('priority')}>
+        <Select label={t('priority', language)} value={form.priority} onChange={handleChange('priority')}>
           {PRIORITIES.map((priority) => (
             <option key={priority} value={priority}>
-              {priority}
+              {t(priority.toLowerCase(), language)}
             </option>
           ))}
         </Select>
-        <Select label="Column" value={form.columnId} onChange={handleChange('columnId')}>
+        <Select label={t('taskColumn', language)} value={form.columnId} onChange={handleChange('columnId')}>
           {columns.map((column) => (
             <option key={column.id} value={column.id}>
               {column.title}
@@ -169,13 +172,13 @@ export default function TaskModal({
           ))}
         </Select>
         <Input
-          label="Deadline"
+          label={t('deadline', language)}
           type="datetime-local"
           value={form.deadline}
           onChange={handleChange('deadline')}
         />
         <div className={`${styles.full} ${styles.tagField}`}>
-          <span className={styles.tagLabel}>Tags</span>
+          <span className={styles.tagLabel}>{t('tags', language)}</span>
           <div className={styles.tagControl}>
             {form.tags.map((tag) => (
               <span key={tag} className={styles.tagChip}>
@@ -184,7 +187,7 @@ export default function TaskModal({
                   type="button"
                   className={styles.tagRemove}
                   onClick={() => handleRemoveTag(tag)}
-                  aria-label={`Remove tag ${tag}`}
+                  aria-label={`${t('removeTag', language)} ${tag}`}
                 >
                   x
                 </button>
@@ -196,16 +199,16 @@ export default function TaskModal({
               onChange={(event) => setTagInput(event.target.value)}
               onKeyDown={handleTagKeyDown}
               onBlur={handleTagBlur}
-              placeholder="urgent backend"
+              placeholder={t('tagPlaceholder', language)}
             />
           </div>
         </div>
         <Textarea
           className={styles.full}
-          label="Description"
+          label={t('description', language)}
           value={form.description}
           onChange={handleChange('description')}
-          placeholder="Give the team enough context to act without asking follow-up questions."
+          placeholder={t('giveTeamContext', language)}
         />
       </div>
     </Modal>
