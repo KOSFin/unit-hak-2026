@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from app.main import create_app, lifespan
@@ -40,7 +42,7 @@ async def test_lifespan_starts_seed_and_relay(monkeypatch):
                 "seed_demo_data": True,
                 "log_level": "info",
                 "cors_origins": lambda self: ["https://ui.example.com"],
-                "uploads_filesystem_path": lambda self: __import__("pathlib").Path("uploads"),
+                "uploads_filesystem_path": lambda self: Path("uploads"),
                 "uploads_url_path": lambda self: "uploads",
             },
         )(),
@@ -81,7 +83,7 @@ async def test_lifespan_without_seed(monkeypatch):
                 "seed_demo_data": False,
                 "log_level": "info",
                 "cors_origins": lambda self: [],
-                "uploads_filesystem_path": lambda self: __import__("pathlib").Path("uploads"),
+                "uploads_filesystem_path": lambda self: Path("uploads"),
                 "uploads_url_path": lambda self: "uploads",
             },
         )(),
@@ -103,7 +105,7 @@ def test_create_app_configures_cors(monkeypatch):
                 "seed_demo_data": False,
                 "log_level": "info",
                 "cors_origins": lambda self: ["https://ui.example.com"],
-                "uploads_filesystem_path": lambda self: __import__("pathlib").Path("uploads"),
+                "uploads_filesystem_path": lambda self: Path("uploads"),
                 "uploads_url_path": lambda self: "uploads",
             },
         )(),

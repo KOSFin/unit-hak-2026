@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -23,18 +22,18 @@ class CleanupService:
         for board in self.board_repo.list_all():
             if board.archived_at:
                 continue
-                
+
             expires_after = board.expires_after_days or inactive_days
             cutoff = now - timedelta(days=expires_after)
-            
+
             last_activity = board.last_activity_at
             if last_activity and last_activity < cutoff:
                 # Store image_path before deleting to clean up files
                 image_path = board.image_path
-                
+
                 if self.board_repo.delete(board.id):
                     removed += 1
-                    
+
                     # Also cleanup associated files
                     if image_path and image_path.startswith(uploads_url_prefix):
                         filename = image_path.removeprefix(uploads_url_prefix)
@@ -44,5 +43,5 @@ class CleanupService:
                                 filepath.unlink()
                             except OSError:
                                 pass
-                                
+
         return removed

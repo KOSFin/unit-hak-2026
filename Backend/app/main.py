@@ -36,6 +36,8 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    uploads_dir = settings.uploads_filesystem_path()
+    uploads_dir.mkdir(parents=True, exist_ok=True)
     setup_logging(settings.log_level)
 
     app = FastAPI(title="FlowBoard API", version="0.1.0", lifespan=lifespan)
@@ -54,7 +56,7 @@ def create_app() -> FastAPI:
 
     app.mount(
         f"/{settings.uploads_url_path()}",
-        StaticFiles(directory=str(settings.uploads_filesystem_path())),
+        StaticFiles(directory=str(uploads_dir)),
         name="uploads",
     )
 
