@@ -10,13 +10,19 @@ from app.core.config import get_settings
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 
-def _compress_and_save_image(file_path: Path, max_size: tuple[int, int] = (800, 800)) -> None:
+def _compress_and_save_image(file_path: Path, max_size: tuple[int, int] = (256, 256)) -> Path:
     try:
         with Image.open(file_path) as img:
-            img.thumbnail(max_size)
-            img.save(file_path, optimize=True, quality=85)
+            image = img.convert("RGB")
+            image.thumbnail(max_size)
+            output_path = file_path.with_suffix(".webp")
+            image.save(output_path, format="WEBP", optimize=True, quality=70, method=6)
+            if output_path != file_path:
+                file_path.unlink(missing_ok=True)
+            return output_path
     except Exception:
         pass  # Ignore compression errors and use original
+    return file_path
 
 
 @router.post("")
@@ -44,7 +50,8 @@ async def upload_image(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    _compress_and_save_image(file_path)
+    file_path = _compress_and_save_image(file_path)
+    filename = file_path.name
 
     uploads_path = settings.uploads_url_path()
     return {"url": f"/{uploads_path}/{filename}", "path": f"/{uploads_path}/{filename}"}

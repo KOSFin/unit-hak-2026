@@ -15,6 +15,7 @@ from app.repositories.task_repository import TaskRepository
 from app.services.automation_rules import ALLOWED_CONDITION_KEYS, ALLOWED_TOAST_TONES, normalize_trigger
 from app.services.event_service import EventService
 from app.services.notification_service import NotificationService
+from app.services.seed_service import SEED_RULES
 from app.services.task_service import serialize_task
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,16 @@ class RuleEffect:
     changes: dict[str, Any]
 
 
+@dataclass
+class BuiltinRule:
+    id: str
+    name: str
+    enabled: bool
+    trigger_type: str
+    condition: dict[str, Any]
+    action: dict[str, Any]
+
+
 class AutomationService:
     def __init__(self, session: Session) -> None:
         self.task_repo = TaskRepository(session)
@@ -55,7 +66,14 @@ class AutomationService:
         if not task:
             return None
 
-        rules = [rule for rule in self.rule_repo.list_all(task.board_id) if rule.enabled]
+        board_rules = [
+            rule
+            for rule in self.rule_repo.list_all()
+            if rule.board_id is None or rule.board_id == task.board_id
+        ]
+        rules = [rule for rule in board_rules if rule.enabled]
+        if not board_rules:
+            rules = self._builtin_rules()
         if not rules:
             return task
 
@@ -120,14 +138,14 @@ class AutomationService:
                     "automation_rule",
                     updated.id,
                     {
-                    "board_id": updated.board_id,
-                    "task": serialize_task(updated),
-                    "rule": {
-                        "id": effect.rule_id,
-                        "name": effect.rule_name,
-                    },
-                    "changes": effect.changes,
-                    "message": effect.message,
+                        "board_id": updated.board_id,
+                        "task": serialize_task(updated),
+                        "rule": {
+                            "id": effect.rule_id,
+                            "name": effect.rule_name,
+                        },
+                        "changes": effect.changes,
+                        "message": effect.message,
                         "toast": {
                             "message": effect.message,
                             "tone": effect.toast_tone,
@@ -138,6 +156,20 @@ class AutomationService:
                 )
 
         return updated
+
+    def _builtin_rules(self) -> list[BuiltinRule]:
+        return [
+            BuiltinRule(
+                id=f"builtin-{index + 1}",
+                name=rule["name"],
+                enabled=rule["enabled"],
+                trigger_type=rule["trigger_type"],
+                condition=rule["condition"],
+                action=rule["action"],
+            )
+            for index, rule in enumerate(SEED_RULES)
+            if rule.get("enabled", True)
+        ]
 
     def _match_trigger(self, trigger_type: str, source_event: str) -> bool:
         normalized = normalize_trigger(trigger_type)

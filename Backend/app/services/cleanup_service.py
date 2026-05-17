@@ -27,6 +27,8 @@ class CleanupService:
             cutoff = now - timedelta(days=expires_after)
 
             last_activity = board.last_activity_at
+            if last_activity and last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=UTC)
             if last_activity and last_activity < cutoff:
                 # Store image_path before deleting to clean up files
                 image_path = board.image_path

@@ -23,10 +23,16 @@ export default function ShareModal({ board, onClose }) {
     }>
       <div className={styles.content}>
         <p className={styles.text}>Anyone with this link can access this MVP board.</p>
-        <div className={styles.inputGroup}>
+        <div className={styles.linkRow}>
           <input readOnly value={url} className={styles.input} />
-          <Button onClick={handleCopy}>{copied ? 'Copied' : 'Copy link'}</Button>
+          <Button onClick={handleCopy} className={styles.iconButton} aria-label="Copy board link">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 0 0-7.07-7.07L12.5 4.43" />
+              <path d="M14 11a5 5 0 0 0-7.07 0L3.4 14.54a5 5 0 0 0 7.07 7.07L11.5 19.57" />
+            </svg>
+          </Button>
         </div>
+        <p className={styles.helper}>{copied ? 'Copied' : 'Copy link'}</p>
       </div>
     </Modal>
   );

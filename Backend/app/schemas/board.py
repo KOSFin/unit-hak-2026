@@ -36,5 +36,5 @@ class BoardUpdate(BaseModel):
     image_path: str | None = None
 
 
-class BoardCreatedResponse(BoardRead):
+class BoardCreatedResponse(BoardDetail):
     board_url: str

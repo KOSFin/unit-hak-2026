@@ -40,10 +40,7 @@ def create_board(payload: BoardCreate, session: SessionDep) -> BoardCreatedRespo
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     detail = serialize_board_detail(service, board)
-    return BoardCreatedResponse(
-        **detail.model_dump(),
-        board_url=service.get_board_url(board.public_id),
-    )
+    return BoardCreatedResponse(**detail.model_dump())
 
 
 @router.get("/default", response_model=BoardDetail)

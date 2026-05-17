@@ -82,6 +82,12 @@
   font-size: 0.78rem;
 }
 
+.groupMeta {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
 .groupHeader code {
   color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -155,6 +161,14 @@
 .time {
   color: var(--text-secondary);
   font-size: 0.78rem;
+}
+
+.count {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(201, 201, 191, 0.18);
 }
 
 .eventTitle {
