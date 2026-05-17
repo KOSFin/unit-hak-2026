@@ -35,6 +35,9 @@ class BoardService:
     def list_columns(self, board_id: str) -> list[Column]:
         return self.column_repo.list_by_board(board_id)
 
+    def list_owned_boards(self, owner_guest_id: str) -> list[Board]:
+        return self.board_repo.list_by_owner_guest_id(owner_guest_id)
+
     def create_board(self, payload: BoardCreate, image_path: str | None = None) -> Board:
         retention_days = payload.retention_days
         if retention_days != 3:

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
-from app.schemas.board import BoardCreate, BoardCreatedResponse, BoardDetail, BoardUpdate
+from app.schemas.board import BoardCreate, BoardCreatedResponse, BoardDetail, BoardRead, BoardUpdate
 from app.schemas.event import ActivityEventRead, ActivityGroupRead
 from app.schemas.column import ColumnRead
 from app.services.board_service import BoardService
@@ -52,6 +52,18 @@ def get_default_board(session: SessionDep) -> BoardDetail:
     if not board:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
     return serialize_board_detail(service, board)
+
+
+@router.get("/owned/{owner_guest_id}", response_model=list[BoardRead])
+def list_owned_boards(owner_guest_id: str, session: SessionDep) -> list[BoardRead]:
+    service = BoardService(session)
+    boards = service.list_owned_boards(owner_guest_id)
+    response = []
+    for board in boards:
+        payload = BoardRead.model_validate(board).model_dump()
+        payload["board_url"] = service.get_board_url(board.public_id)
+        response.append(BoardRead(**payload))
+    return response
 
 
 @router.get("/{public_board_id}", response_model=BoardDetail)

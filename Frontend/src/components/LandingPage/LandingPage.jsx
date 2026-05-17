@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { createBoard } from '../../api/boardsApi';
+import { createBoard, getOwnedBoards } from '../../api/boardsApi';
 import { getBoardPublicUrl, resolveAppUrl } from '../../api/client';
 import { uploadImage } from '../../api/uploadsApi';
 import { useLocale } from '../../contexts/LocaleContext';
 import { t } from '../../utils/i18n';
 import { getGuestIdentity } from '../../utils/guest';
+import { getAvatarSurfaceStyle, getBoardCoverStyle } from '../../utils/imagePlaceholders';
 import Button from '../Ui/Button';
 import Input from '../Ui/Input';
 import Select from '../Ui/Select';
@@ -24,6 +25,9 @@ export default function LandingPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
   const [createdBoard, setCreatedBoard] = useState(null);
+  const [ownedBoards, setOwnedBoards] = useState([]);
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [boardsError, setBoardsError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const fileInputRef = useRef(null);
@@ -35,6 +39,37 @@ export default function LandingPage() {
     { value: '365', label: language === 'ru' ? '1 год' : '1 year' },
     { value: 'forever', label: language === 'ru' ? 'Не удалять' : 'Do not delete' },
   ];
+
+  useEffect(() => {
+    if (!startOpen || !identity.id) {
+      return undefined;
+    }
+
+    let ignore = false;
+    setBoardsLoading(true);
+    setBoardsError(null);
+
+    getOwnedBoards(identity.id)
+      .then((boards) => {
+        if (!ignore) {
+          setOwnedBoards(boards);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setBoardsError(t('failedToLoadBoards', language));
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setBoardsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [identity.id, language, startOpen]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -77,6 +112,10 @@ export default function LandingPage() {
       });
 
       setCreatedBoard(board);
+      setOwnedBoards((currentBoards) => [
+        board,
+        ...currentBoards.filter((item) => item.public_id !== board.public_id),
+      ]);
     } catch (err) {
       setError(err.response?.data?.detail || t('error', language));
     } finally {
@@ -104,6 +143,10 @@ export default function LandingPage() {
     }
   };
 
+  const openBoard = (publicId) => {
+    navigate(`/board/${publicId}`);
+  };
+
   const creationForm = createdBoard ? (
     <div className={styles.createdCard}>
       <p className={styles.formKicker}>{t('boardCreated', language)}</p>
@@ -114,7 +157,7 @@ export default function LandingPage() {
       </div>
       <Button
         className={styles.openBtn}
-        onClick={() => navigate(`/board/${createdBoard.public_id}`)}
+        onClick={() => openBoard(createdBoard.public_id)}
       >
         {t('openBoard', language)}
       </Button>
@@ -270,22 +313,58 @@ export default function LandingPage() {
               ×
             </button>
             <aside className={styles.boardsPane}>
-              <p className={styles.formKicker}>{t('createdBoards', language)}</p>
-              {createdBoard ? (
-                <button
-                  type="button"
-                  className={styles.createdPreview}
-                  onClick={() => navigate(`/board/${createdBoard.public_id}`)}
-                >
-                  <strong>{createdBoard.name}</strong>
-                  <span>{t('openBoard', language)}</span>
-                </button>
-              ) : (
-                <div className={styles.emptyBoards}>
-                  <strong>{t('landingNoBoardsYet', language)}</strong>
-                  <span>{t('landingNoBoardsHint', language)}</span>
+              <div className={styles.userCard}>
+                <span
+                  className={styles.userAvatar}
+                  style={getAvatarSurfaceStyle(identity.avatarUrl, identity.color)}
+                  aria-hidden="true"
+                />
+                <div>
+                  <p>{t('guestProfile', language)}</p>
+                  <strong>{identity.displayName || t('guest', language)}</strong>
                 </div>
-              )}
+              </div>
+              <div className={styles.boardsHeader}>
+                <p className={styles.formKicker}>{t('createdBoards', language)}</p>
+                <span>{t('ownedBoardsHint', language)}</span>
+              </div>
+              <div className={styles.boardsList}>
+                {boardsLoading ? (
+                  <div className={styles.emptyBoards}>
+                    <strong>{t('loading', language)}</strong>
+                    <span>{t('loadingBoards', language)}</span>
+                  </div>
+                ) : boardsError ? (
+                  <div className={styles.emptyBoards}>
+                    <strong>{t('failed', language)}</strong>
+                    <span>{boardsError}</span>
+                  </div>
+                ) : ownedBoards.length > 0 ? (
+                  ownedBoards.map((board) => (
+                    <button
+                      type="button"
+                      key={board.public_id}
+                      className={styles.boardPreview}
+                      onClick={() => openBoard(board.public_id)}
+                    >
+                      <span
+                        className={styles.boardCover}
+                        style={getBoardCoverStyle(board.image_path)}
+                        aria-hidden="true"
+                      />
+                      <span className={styles.boardMeta}>
+                        <strong>{board.name}</strong>
+                        <span>{t('openBoard', language)}</span>
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className={styles.emptyBoards}>
+                    <strong>{t('landingNoBoardsYet', language)}</strong>
+                    <span>{t('landingNoBoardsHint', language)}</span>
+                  </div>
+                )}
+              </div>
               <div className={styles.kanbanMock} aria-hidden="true">
                 <div>
                   <span></span>

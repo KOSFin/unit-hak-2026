@@ -74,6 +74,35 @@ def test_create_board_with_guest_admin_settings(client: TestClient, db_session: 
     assert data["allow_guest_admin"] is True
 
 
+def test_list_owned_boards(client: TestClient, db_session: Session) -> None:
+    owner_board = client.post(
+        "/api/boards",
+        json={
+            "name": "Owner Board",
+            "retention_days": 3,
+            "creator_guest_id": "guest-owner",
+        },
+    )
+    other_board = client.post(
+        "/api/boards",
+        json={
+            "name": "Other Board",
+            "retention_days": 3,
+            "creator_guest_id": "guest-other",
+        },
+    )
+    assert owner_board.status_code == 201
+    assert other_board.status_code == 201
+
+    response = client.get("/api/boards/owned/guest-owner")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [board["name"] for board in data] == ["Owner Board"]
+    assert data[0]["owner_guest_id"] == "guest-owner"
+    assert data[0]["board_url"].endswith(f"/board/{owner_board.json()['public_id']}")
+
+
 def test_delete_board(client: TestClient, db_session: Session) -> None:
     created = client.post("/api/boards", json={"name": "Delete Me", "retention_days": 3})
     assert created.status_code == 201

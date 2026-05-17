@@ -10,6 +10,11 @@ export async function getBoard(publicBoardId) {
   return data;
 }
 
+export async function getOwnedBoards(ownerGuestId) {
+  const { data } = await apiClient.get(`/api/boards/owned/${ownerGuestId}`);
+  return data;
+}
+
 export async function updateBoard(publicBoardId, payload) {
   const { data } = await apiClient.patch(`/api/boards/${publicBoardId}`, payload);
   return data;

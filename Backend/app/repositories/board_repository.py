@@ -54,6 +54,14 @@ class BoardRepository:
         stmt = select(Board).order_by(Board.created_at)
         return list(self.session.execute(stmt).scalars().all())
 
+    def list_by_owner_guest_id(self, owner_guest_id: str) -> list[Board]:
+        stmt = (
+            select(Board)
+            .where(Board.owner_guest_id == owner_guest_id, Board.archived_at.is_(None))
+            .order_by(sa.desc(Board.updated_at), sa.desc(Board.created_at))
+        )
+        return list(self.session.execute(stmt).scalars().all())
+
     def get_default(self) -> Board | None:
         return self.get_by_name(DEFAULT_BOARD_NAME)
 
