@@ -27,21 +27,58 @@ function getInitial(name = '') {
   return name.trim().charAt(0).toUpperCase() || '?';
 }
 
-function ActivityIndicator({ user, label }) {
-  if (!user) return null;
+function formatPresenceNames(users, locale) {
+  const visibleNames = users
+    .slice(0, 2)
+    .map((user) => user.display_name || t('guest', locale));
+  const extraCount = Math.max(0, users.length - 2);
+
+  if (extraCount === 0) {
+    return visibleNames.join(', ');
+  }
+
+  return [
+    visibleNames.join(', '),
+    t('andMoreCollaborators', locale),
+    extraCount,
+    t('moreCollaboratorsSuffix', locale),
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function getPresenceLabel(kind, count, locale) {
+  if (kind === 'editing') {
+    return count > 1 ? t('editingMany', locale) : t('editingBy', locale);
+  }
+
+  return count > 1 ? t('movingMany', locale) : t('movingBy', locale);
+}
+
+function ActivityIndicator({ users = [], label, locale }) {
+  if (!users.length) return null;
+
+  const visibleUsers = users.slice(0, 2);
+  const extraCount = Math.max(0, users.length - 2);
+  const namesLabel = formatPresenceNames(users, locale);
 
   return (
-    <div className={styles.activityBadge}>
-      <span
-        className={styles.activityAvatar}
-        style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
-        aria-hidden="true"
-      >
-        {!user.avatar_url && getInitial(user.display_name)}
+    <div className={styles.activityBadge} aria-label={`${label} ${namesLabel}`}>
+      <span className={styles.activityAvatarStack} aria-hidden="true">
+        {visibleUsers.map((user) => (
+          <span
+            key={user.guest_id}
+            className={styles.activityAvatar}
+            style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
+          >
+            {!user.avatar_url && getInitial(user.display_name)}
+          </span>
+        ))}
+        {extraCount > 0 ? <span className={`${styles.activityAvatar} ${styles.activityExtra}`}>+{extraCount}</span> : null}
       </span>
       <span className={styles.activityText}>
         <span className={styles.activityLabel}>{label}</span>
-        <span className={styles.activityName}>{user.display_name}</span>
+        <span className={styles.activityName}>{namesLabel}</span>
       </span>
     </div>
   );
@@ -51,17 +88,14 @@ function TaskCardContent({ task, editingUsers, draggingUsers, locale }) {
   const formatDeadline = (value) => {
     return formatDate(value, locale);
   };
-  const activityUser = editingUsers?.[0] ?? draggingUsers?.[0] ?? null;
-  const activityLabel = editingUsers?.length
-    ? t('editingBy', locale)
-    : draggingUsers?.length
-      ? t('movingBy', locale)
-      : null;
+  const activityKind = editingUsers?.length ? 'editing' : draggingUsers?.length ? 'moving' : null;
+  const activityUsers = activityKind === 'editing' ? editingUsers : activityKind === 'moving' ? draggingUsers : [];
+  const activityLabel = activityKind ? getPresenceLabel(activityKind, activityUsers.length, locale) : null;
 
   return (
     <>
-      {activityUser && activityLabel ? (
-        <ActivityIndicator user={activityUser} label={activityLabel} />
+      {activityUsers.length > 0 && activityLabel ? (
+        <ActivityIndicator users={activityUsers} label={activityLabel} locale={locale} />
       ) : null}
 
       <div className={styles.header}>
@@ -110,6 +144,11 @@ export default function TaskCard({ task, onOpen, editingUsers, draggingUsers, dr
   
   const isEditing = editingUsers?.length > 0;
   const isOtherDragging = draggingUsers?.length > 0 && !isDragging;
+  const indicatorColor = isEditing
+    ? editingUsers?.[0]?.color
+    : isOtherDragging
+      ? draggingUsers?.[0]?.color
+      : 'transparent';
 
   return (
     <button
@@ -119,7 +158,7 @@ export default function TaskCard({ task, onOpen, editingUsers, draggingUsers, dr
       style={{
         transform: CSS.Translate.toString(transform),
         transition,
-        '--indicator-color': isEditing ? editingUsers[0].color : (isOtherDragging ? draggingUsers[0].color : 'transparent')
+        '--indicator-color': indicatorColor || 'transparent',
       }}
       onClick={() => onOpen(task)}
       {...attributes}

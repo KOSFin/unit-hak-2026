@@ -1175,7 +1175,27 @@ export default function BoardPage() {
           />
         </div>
 
-        {eventFlowOpen ? <EventFlow boardId={board.public_id} onlineUsers={onlineUsers} /> : null}
+        {eventFlowOpen ? (
+          <div className={styles.eventFlowLayer}>
+            <button
+              type="button"
+              className={styles.eventFlowBackdrop}
+              onClick={() => setEventFlowOpen(false)}
+              aria-label={t('closeActivity', language)}
+            />
+            <div className={styles.eventFlowModal}>
+              <button
+                type="button"
+                className={styles.eventFlowClose}
+                onClick={() => setEventFlowOpen(false)}
+                aria-label={t('close', language)}
+              >
+                ×
+              </button>
+              <EventFlow boardId={board.public_id} onlineUsers={onlineUsers} />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {activeModal === 'task' ? (

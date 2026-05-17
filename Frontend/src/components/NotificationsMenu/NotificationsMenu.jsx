@@ -16,12 +16,13 @@ export default function NotificationsMenu({
   pending,
   onMarkRead,
   onMarkAllRead,
+  className = '',
 }) {
   const { language } = useLocale();
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   return (
-    <section className={styles.menu} role="dialog" aria-label={t('notifications', language)}>
+    <section className={`${styles.menu} ${className}`.trim()} role="dialog" aria-label={t('notifications', language)}>
       <div className={styles.header}>
         <div>
           <p className={styles.kicker}>{t('realtimeInbox', language)}</p>

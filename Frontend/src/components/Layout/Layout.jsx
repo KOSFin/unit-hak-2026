@@ -106,6 +106,28 @@ function ToolbarIcon({ children }) {
   return <span className={styles.toolbarIcon}>{children}</span>;
 }
 
+function OnlineAvatarStack({ users, extraCount, language, size = 'md' }) {
+  if (users.length === 0) {
+    return <span className={styles.onlineFallback}>{t('waitingForCollaborators', language)}</span>;
+  }
+
+  return (
+    <div className={`${styles.onlineAvatars} ${size === 'sm' ? styles.onlineAvatarsSmall : ''}`} aria-hidden="true">
+      {users.map((user) => (
+        <div
+          key={user.guest_id}
+          className={styles.onlineAvatar}
+          style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
+          title={user.display_name}
+        >
+          {!user.avatar_url && getInitial(user.display_name)}
+        </div>
+      ))}
+      {extraCount > 0 ? <div className={styles.onlineExtra}>+{extraCount}</div> : null}
+    </div>
+  );
+}
+
 function getRetentionPresetOptions(language) {
   return [
     { value: 3, label: language === 'ru' ? '3 дня' : '3 days', locked: false },
@@ -162,6 +184,7 @@ export default function Layout({
   const [onlineOpen, setOnlineOpen] = useState(false);
   const [boardInfoOpen, setBoardInfoOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -173,7 +196,7 @@ export default function Layout({
   }, []);
 
   useEffect(() => {
-    if (!notificationsOpen && !onlineOpen && !boardInfoOpen && !filtersOpen) {
+    if (!notificationsOpen && !onlineOpen && !boardInfoOpen && !filtersOpen && !mobileMenuOpen) {
       return undefined;
     }
 
@@ -190,10 +213,17 @@ export default function Layout({
       if (filtersRef.current?.contains(event.target)) {
         return;
       }
+      if (event.target.closest?.(`.${styles.mobileNotificationsMenu}`)) {
+        return;
+      }
+      if (event.target.closest?.(`.${styles.mobileMenuPanel}`) || event.target.closest?.(`.${styles.mobileMenuButton}`)) {
+        return;
+      }
       onCloseNotifications();
       setOnlineOpen(false);
       setBoardInfoOpen(false);
       setFiltersOpen(false);
+      setMobileMenuOpen(false);
     };
 
     const handleEscape = (event) => {
@@ -202,6 +232,7 @@ export default function Layout({
         setOnlineOpen(false);
         setBoardInfoOpen(false);
         setFiltersOpen(false);
+        setMobileMenuOpen(false);
       }
     };
 
@@ -211,13 +242,13 @@ export default function Layout({
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [boardInfoOpen, filtersOpen, notificationsOpen, onlineOpen, onCloseNotifications]);
+  }, [boardInfoOpen, filtersOpen, mobileMenuOpen, notificationsOpen, onlineOpen, onCloseNotifications]);
 
   const lifecycle = useMemo(() => buildLifecycleSnapshot(board, now, language), [board, now, language]);
   const retentionOptions = useMemo(() => getRetentionPresetOptions(language), [language]);
 
-  const displayedUsers = onlineUsers.slice(0, 3);
-  const extraUsers = Math.max(0, onlineUsers.length - 3);
+  const displayedUsers = onlineUsers.slice(0, 2);
+  const extraUsers = Math.max(0, onlineUsers.length - 2);
   const showOnlineControl = onlineUsers.length > 0 || realtimeStatus !== 'connected';
   const realtimeLabel =
     realtimeStatus === 'connected'
@@ -332,6 +363,18 @@ export default function Layout({
           </div>
         </div>
 
+        <button
+          type="button"
+          className={styles.mobileMenuButton}
+          aria-label={t('openBoardMenu', language)}
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen((current) => !current)}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
         <div className={styles.actions}>
           {showOnlineControl ? (
             <div className={styles.onlineWrap} ref={onlineRef}>
@@ -347,22 +390,7 @@ export default function Layout({
                 <div className={styles.onlineLabelBlock}>
                   <span className={styles.onlineValue}>{realtimeLabel}</span>
                 </div>
-                <div className={styles.onlineAvatars}>
-                  {displayedUsers.map((user) => (
-                    <div
-                      key={user.guest_id}
-                      className={styles.onlineAvatar}
-                      style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
-                      title={user.display_name}
-                    >
-                      {!user.avatar_url && getInitial(user.display_name)}
-                    </div>
-                  ))}
-                  {displayedUsers.length === 0 ? (
-                    <span className={styles.onlineFallback}>{t('waitingForCollaborators', language)}</span>
-                  ) : null}
-                  {extraUsers > 0 ? <div className={styles.onlineExtra}>+{extraUsers}</div> : null}
-                </div>
+                <OnlineAvatarStack users={displayedUsers} extraCount={extraUsers} language={language} />
               </button>
 
               {onlineOpen ? (
@@ -464,6 +492,144 @@ export default function Layout({
           </button>
         </div>
       </header>
+
+      {mobileMenuOpen ? (
+        <div className={styles.mobileMenuPanel}>
+          <div className={styles.mobileMenuHeader}>
+            <div>
+              <p className={styles.mobileMenuEyebrow}>FlowBoard</p>
+              <strong>{t('boardMenu', language)}</strong>
+            </div>
+            <button
+              type="button"
+              className={styles.mobileCloseButton}
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label={t('close', language)}
+            >
+              ×
+            </button>
+          </div>
+
+          {showOnlineControl ? (
+            <button
+              type="button"
+              className={styles.mobileMenuItem}
+              onClick={() => setOnlineOpen((current) => !current)}
+            >
+              <span>{realtimeLabel}</span>
+              <OnlineAvatarStack users={displayedUsers} extraCount={extraUsers} language={language} size="sm" />
+            </button>
+          ) : null}
+
+          {showOnlineControl && onlineOpen ? (
+            <div className={styles.mobileOnlineList}>
+              {onlineUsers.length === 0 ? (
+                <div className={styles.onlineEmpty}>
+                  {t('willShowCollaboratorsWhenRealtimeConnects', language)}
+                </div>
+              ) : null}
+              {onlineUsers.map((user) => (
+                <div key={user.guest_id} className={styles.onlineRow}>
+                  <div
+                    className={styles.onlineAvatarLarge}
+                    style={getAvatarSurfaceStyle(user.avatar_url, user.color)}
+                  >
+                    {!user.avatar_url && getInitial(user.display_name)}
+                  </div>
+                  <div>
+                    <div className={styles.onlineName}>{user.display_name}</div>
+                    <div className={styles.onlineMeta}>
+                      {user.guest_id === identity?.id ? t('you', language) : t('guestCollaborator', language)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className={styles.mobileMenuItem}
+            onClick={() => {
+              onToggleEventFlow();
+              setMobileMenuOpen(false);
+            }}
+          >
+            <span>{t('activity', language)}</span>
+            <ToolbarIcon>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </ToolbarIcon>
+          </button>
+
+          <button
+            type="button"
+            className={styles.mobileMenuItem}
+            onClick={() => {
+              setShareOpen(true);
+              setMobileMenuOpen(false);
+            }}
+          >
+            <span>{t('share', language)}</span>
+            <ToolbarIcon>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 0 0-7.07-7.07L12.5 4.43" />
+                <path d="M14 11a5 5 0 0 0-7.07 0L3.4 14.54a5 5 0 0 0 7.07 7.07L11.5 19.57" />
+              </svg>
+            </ToolbarIcon>
+          </button>
+
+          <button
+            type="button"
+            className={styles.mobileMenuItem}
+            onClick={() => {
+              onToggleNotifications();
+              setMobileMenuOpen(false);
+            }}
+          >
+            <span>{t('notifications', language)}</span>
+            {unreadCount > 0 ? <span className={styles.mobileMenuBadge}>{unreadCount}</span> : null}
+          </button>
+
+          {canManageBoard ? (
+            <button
+              type="button"
+              className={styles.mobileMenuItem}
+              onClick={() => {
+                onOpenAdmin();
+                setMobileMenuOpen(false);
+              }}
+            >
+              <span>{t('admin', language)}</span>
+              <ToolbarIcon>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+              </ToolbarIcon>
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            className={`${styles.mobileMenuItem} ${styles.mobileProfileItem}`}
+            onClick={() => {
+              setProfileOpen(true);
+              setMobileMenuOpen(false);
+            }}
+          >
+            <span>{identity?.displayName || t('profile', language)}</span>
+            <span
+              className={styles.mobileProfileAvatar}
+              style={getAvatarSurfaceStyle(identity?.avatarUrl, identity?.color)}
+              aria-hidden="true"
+            >
+              {!identity?.avatarUrl && getInitial(identity?.displayName)}
+            </span>
+          </button>
+        </div>
+      ) : null}
 
       <div className={styles.toolbarDock}>
         <section className={styles.toolbar} aria-label={t('taskSearchAndFilters', language)}>
@@ -569,6 +735,16 @@ export default function Layout({
       </div>
 
       <main className={`${styles.main} ${mainClassName}`.trim()}>{children}</main>
+
+      {notificationsOpen ? (
+        <NotificationsMenu
+          notifications={notifications}
+          pending={pending}
+          onMarkRead={onMarkNotificationRead}
+          onMarkAllRead={onMarkAllNotificationsRead}
+          className={styles.mobileNotificationsMenu}
+        />
+      ) : null}
 
       {profileOpen ? (
         <ProfileModal

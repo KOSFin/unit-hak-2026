@@ -213,9 +213,29 @@
   .panel {
     width: 100%;
     min-width: 0;
+    height: 100%;
+    border-radius: 24px;
+  }
+
+  .header {
+    padding-right: 62px;
   }
   
   .event {
     gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel {
+    border-radius: 22px;
+  }
+
+  .header {
+    padding: 16px 58px 12px 16px;
+  }
+
+  .content {
+    padding: 10px 14px 16px;
   }
 }

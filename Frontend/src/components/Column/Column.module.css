@@ -70,10 +70,14 @@
 
 @media (max-width: 860px) {
   .column {
+    width: 100%;
+    min-width: 0;
     max-height: none;
+    padding: 16px;
   }
 
   .list {
     overflow-y: visible;
+    padding-top: 18px;
   }
 }
