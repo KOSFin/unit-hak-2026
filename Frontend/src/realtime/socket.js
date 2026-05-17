@@ -45,6 +45,15 @@ export function createRealtimeSocket(handlers = {}) {
   let candidateIndex = 0;
   let reconnectTimer = null;
   let manuallyClosed = false;
+  let reconnectDelay = 1500;
+
+  const scheduleReconnect = () => {
+    reconnectTimer = window.setTimeout(() => {
+      candidateIndex = 0;
+      connect();
+    }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+  };
 
   const connect = () => {
     const target = candidates[Math.min(candidateIndex, candidates.length - 1)];
@@ -54,6 +63,7 @@ export function createRealtimeSocket(handlers = {}) {
 
     socket.addEventListener('open', () => {
       candidateIndex = 0;
+      reconnectDelay = 1500;
       handlers.onOpen?.(socket, target);
     });
 
@@ -70,10 +80,7 @@ export function createRealtimeSocket(handlers = {}) {
         return;
       }
 
-      reconnectTimer = window.setTimeout(() => {
-        candidateIndex = 0;
-        connect();
-      }, 1500);
+      scheduleReconnect();
     });
 
     socket.addEventListener('error', (event) => {

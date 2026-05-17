@@ -41,6 +41,50 @@ const DEFAULT_TASK_VIEW = {
   sortMode: 'BOARD_ORDER',
 };
 
+const REALTIME_LEADER_TTL_MS = 5000;
+const REALTIME_LEADER_HEARTBEAT_MS = 2000;
+
+function getRealtimeLeaderStorageKey(boardPublicId) {
+  return `flowboard-realtime-leader:${boardPublicId}`;
+}
+
+function readRealtimeLeaderLock(storageKey) {
+  try {
+    const rawValue = localStorage.getItem(storageKey);
+    if (!rawValue) {
+      return null;
+    }
+    return JSON.parse(rawValue);
+  } catch {
+    return null;
+  }
+}
+
+function writeRealtimeLeaderLock(storageKey, tabId) {
+  try {
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        tabId,
+        expiresAt: Date.now() + REALTIME_LEADER_TTL_MS,
+      }),
+    );
+  } catch {
+    // localStorage not available, ignore
+  }
+}
+
+function clearRealtimeLeaderLock(storageKey, tabId) {
+  try {
+    const currentLock = readRealtimeLeaderLock(storageKey);
+    if (currentLock?.tabId === tabId) {
+      localStorage.removeItem(storageKey);
+    }
+  } catch {
+    // localStorage not available, ignore
+  }
+}
+
 function buildPresenceMaps(snapshot, currentGuestId) {
   const editingUsersMap = {};
   const draggingUsersMap = {};
@@ -117,6 +161,8 @@ export default function BoardPage() {
   const socketRef = useRef(null);
   const crossTabRef = useRef(null);
   const previousRealtimeStatusRef = useRef('idle');
+  const realtimeLeaderTabIdRef = useRef(generateCorrelationId());
+  const isRealtimeLeaderRef = useRef(false);
   const identityRef = useRef(identity);
   const languageRef = useRef(language);
   const skipCrossTabBroadcastRef = useRef({
@@ -128,6 +174,7 @@ export default function BoardPage() {
   });
   const boardId = board?.id ?? null;
   const boardPublicId = board?.public_id ?? null;
+  const [isRealtimeLeader, setIsRealtimeLeader] = useState(false);
   const activeTaskView = taskView.boardId === publicBoardId
     ? taskView
     : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW };
@@ -168,6 +215,79 @@ export default function BoardPage() {
     identityRef.current = identity;
     languageRef.current = language;
   }, [identity, language]);
+
+  const handleRealtimeMessage = useCallback((message) => {
+    if (!message) {
+      return;
+    }
+
+    if (message.type === 'presence.snapshot' || message.type === 'presence.updated') {
+      const snapshot = message.payload || {};
+      setOnlineUsers(snapshot.users || []);
+      const { editingUsersMap: nextEditing, draggingUsersMap: nextDragging } =
+        buildPresenceMaps(snapshot, identityRef.current.id);
+      setEditingUsersMap(nextEditing);
+      setDraggingUsersMap(nextDragging);
+      return;
+    }
+
+    if (message.type === 'system.error') {
+      previousRealtimeStatusRef.current = 'error';
+      setRealtimeStatus('error');
+      setToast({
+        tone: 'danger',
+        title: t('realtimeConnectionIssue', languageRef.current),
+        message: t('realtimeConnectionIssueMessage', languageRef.current),
+      });
+      return;
+    }
+
+    if (!boardId) {
+      return;
+    }
+
+    if (
+      message.type === 'task.created' ||
+      message.type === 'task.updated' ||
+      message.type === 'task.moved' ||
+      message.type === 'task.deleted'
+    ) {
+      refreshTasks(boardId);
+      window.dispatchEvent(new Event('board-event-flow-update'));
+      return;
+    }
+
+    if (
+      message.type === 'column.created' ||
+      message.type === 'column.updated' ||
+      message.type === 'column.deleted'
+    ) {
+      if (boardPublicId) {
+        refreshBoardShell(boardPublicId).catch(() => null);
+      }
+      return;
+    }
+
+    if (
+      message.type === 'automation-rule.created' ||
+      message.type === 'automation-rule.updated' ||
+      message.type === 'automation-rule.deleted'
+    ) {
+      refreshRules(boardId);
+      return;
+    }
+
+    if (message.type === 'incoming-task.processed') {
+      Promise.all([refreshIncomingTasks(boardId), refreshTasks(boardId), refreshNotifications(boardId)])
+        .catch(() => null);
+      return;
+    }
+
+    if (message.type === 'notification.created') {
+      refreshNotifications(boardId);
+      window.dispatchEvent(new Event('board-event-flow-update'));
+    }
+  }, [boardId, boardPublicId, refreshBoardShell, refreshIncomingTasks, refreshNotifications, refreshRules, refreshTasks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,13 +345,72 @@ export default function BoardPage() {
   }, [publicBoardId, language]);
 
   useEffect(() => {
-    if (!boardId) {
+    if (!publicBoardId) {
+      return undefined;
+    }
+
+    const leaderStorageKey = getRealtimeLeaderStorageKey(publicBoardId);
+    const leaderTabId = realtimeLeaderTabIdRef.current;
+
+    const updateLeadership = (nextIsLeader) => {
+      isRealtimeLeaderRef.current = nextIsLeader;
+      setIsRealtimeLeader((current) => (current === nextIsLeader ? current : nextIsLeader));
+      if (!nextIsLeader) {
+        crossTabRef.current?.send('realtime-status-request', null);
+      }
+    };
+
+    const refreshLeadership = () => {
+      const currentLock = readRealtimeLeaderLock(leaderStorageKey);
+      const isOwnLock = currentLock?.tabId === leaderTabId;
+      const isExpired = !currentLock || Number(currentLock.expiresAt || 0) <= Date.now();
+
+      if (isOwnLock || isExpired) {
+        writeRealtimeLeaderLock(leaderStorageKey, leaderTabId);
+        const confirmedLock = readRealtimeLeaderLock(leaderStorageKey);
+        updateLeadership(confirmedLock?.tabId === leaderTabId);
+        return;
+      }
+
+      updateLeadership(false);
+    };
+
+    refreshLeadership();
+
+    const heartbeatId = window.setInterval(refreshLeadership, REALTIME_LEADER_HEARTBEAT_MS);
+    const handleVisibilityChange = () => refreshLeadership();
+    const handleStorageChange = (event) => {
+      if (event.key === leaderStorageKey) {
+        refreshLeadership();
+      }
+    };
+    const handleBeforeUnload = () => {
+      clearRealtimeLeaderLock(leaderStorageKey, leaderTabId);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.clearInterval(heartbeatId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearRealtimeLeaderLock(leaderStorageKey, leaderTabId);
+      updateLeadership(false);
+    };
+  }, [publicBoardId]);
+
+  useEffect(() => {
+    if (!boardId || !isRealtimeLeader) {
       return undefined;
     }
 
     const updateRealtimeState = (nextStatus) => {
       previousRealtimeStatusRef.current = nextStatus;
       setRealtimeStatus(nextStatus);
+      crossTabRef.current?.send('realtime-status', { status: nextStatus });
     };
 
     const sendPresenceJoin = (wsClient) => {
@@ -278,65 +457,8 @@ export default function BoardPage() {
         });
       },
       onMessage: (message) => {
-        if (message.type === 'presence.snapshot' || message.type === 'presence.updated') {
-          const snapshot = message.payload || {};
-          setOnlineUsers(snapshot.users || []);
-          const { editingUsersMap: nextEditing, draggingUsersMap: nextDragging } =
-            buildPresenceMaps(snapshot, identityRef.current.id);
-          setEditingUsersMap(nextEditing);
-          setDraggingUsersMap(nextDragging);
-          return;
-        }
-
-        if (message.type === 'system.error') {
-          updateRealtimeState('error');
-          setToast({
-            tone: 'danger',
-            title: t('realtimeConnectionIssue', languageRef.current),
-            message: t('realtimeConnectionIssueMessage', languageRef.current),
-          });
-          return;
-        }
-
-        if (
-          message.type === 'task.created' ||
-          message.type === 'task.updated' ||
-          message.type === 'task.moved' ||
-          message.type === 'task.deleted'
-        ) {
-          refreshTasks(boardId);
-          window.dispatchEvent(new Event('board-event-flow-update'));
-          return;
-        }
-
-        if (
-          message.type === 'column.created' ||
-          message.type === 'column.updated' ||
-          message.type === 'column.deleted'
-        ) {
-          refreshBoardShell(boardPublicId).catch(() => null);
-          return;
-        }
-
-        if (
-          message.type === 'automation-rule.created' ||
-          message.type === 'automation-rule.updated' ||
-          message.type === 'automation-rule.deleted'
-        ) {
-          refreshRules(boardId);
-          return;
-        }
-
-        if (message.type === 'incoming-task.processed') {
-          Promise.all([refreshIncomingTasks(boardId), refreshTasks(boardId), refreshNotifications(boardId)])
-            .catch(() => null);
-          return;
-        }
-
-        if (message.type === 'notification.created') {
-          refreshNotifications(boardId);
-          window.dispatchEvent(new Event('board-event-flow-update'));
-        }
+        crossTabRef.current?.send('realtime-message', { message });
+        handleRealtimeMessage(message);
       },
     });
 
@@ -347,19 +469,12 @@ export default function BoardPage() {
       socketRef.current = null;
       previousRealtimeStatusRef.current = 'idle';
       setRealtimeStatus('idle');
+      crossTabRef.current?.send('realtime-status', { status: 'idle' });
       setOnlineUsers([]);
       setEditingUsersMap({});
       setDraggingUsersMap({});
     };
-  }, [
-    boardId,
-    boardPublicId,
-    refreshBoardShell,
-    refreshIncomingTasks,
-    refreshNotifications,
-    refreshRules,
-    refreshTasks,
-  ]);
+  }, [boardId, handleRealtimeMessage, isRealtimeLeader]);
   // Cross-tab synchronization setup
   useEffect(() => {
     if (!publicBoardId) {
@@ -410,16 +525,53 @@ export default function BoardPage() {
       }
     });
 
+    const unsubscribeRealtimeMessage = crossTab.on('realtime-message', (payload) => {
+      if (payload?.message) {
+        handleRealtimeMessage(payload.message);
+      }
+    });
+
+    const unsubscribeRealtimeStatus = crossTab.on('realtime-status', (payload) => {
+      if (isRealtimeLeaderRef.current || !payload?.status) {
+        return;
+      }
+      previousRealtimeStatusRef.current = payload.status;
+      setRealtimeStatus(payload.status);
+    });
+
+    const unsubscribeRealtimeStatusRequest = crossTab.on('realtime-status-request', () => {
+      if (!isRealtimeLeaderRef.current) {
+        return;
+      }
+      crossTab.send('realtime-status', { status: previousRealtimeStatusRef.current });
+    });
+
+    const unsubscribeRealtimeCommand = crossTab.on('realtime-command', (payload) => {
+      if (!isRealtimeLeaderRef.current || !payload || payload.board_id !== boardId) {
+        return;
+      }
+      if (socketRef.current?.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      socketRef.current.send(JSON.stringify(payload));
+    });
+
+    crossTab.send('realtime-status-request', null);
+
     return () => {
       unsubscribeTasks();
       unsubscribeBoard();
       unsubscribeNotifications();
       unsubscribeRules();
       unsubscribeIncoming();
+      unsubscribeRealtimeMessage();
+      unsubscribeRealtimeStatus();
+      unsubscribeRealtimeStatusRequest();
+      unsubscribeRealtimeCommand();
       crossTab.dispose();
       crossTabRef.current = null;
     };
-  }, [publicBoardId]);
+  }, [boardId, handleRealtimeMessage, publicBoardId]);
 
   // Broadcast state changes to other tabs
   useEffect(() => {
@@ -491,25 +643,33 @@ export default function BoardPage() {
 
   const sendWsUpdate = useCallback(
     (type, extra = {}) => {
-      if (!board || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      if (!boardId) {
         return;
       }
 
-      socketRef.current.send(
-        JSON.stringify({
-          type,
-          board_id: board.id,
-          user: {
-            guest_id: identity.id,
-            display_name: identity.displayName,
-            color: identity.color,
-            avatar_url: identity.avatarUrl,
-            ...extra,
-          },
-        }),
-      );
+      const payload = {
+        type,
+        board_id: boardId,
+        user: {
+          guest_id: identity.id,
+          display_name: identity.displayName,
+          color: identity.color,
+          avatar_url: identity.avatarUrl,
+          ...extra,
+        },
+      };
+
+      if (isRealtimeLeaderRef.current) {
+        if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+          return;
+        }
+        socketRef.current.send(JSON.stringify(payload));
+        return;
+      }
+
+      crossTabRef.current?.send('realtime-command', payload);
     },
-    [board, identity],
+    [boardId, identity],
   );
 
   useEffect(() => {
