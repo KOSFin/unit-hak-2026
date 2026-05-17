@@ -21,7 +21,7 @@ def _compress_and_save_image(file_path: Path, max_size: tuple[int, int] = (800, 
 
 @router.post("")
 async def upload_image(file: UploadFile = File(...)):
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be an image")
 
     settings = get_settings()
