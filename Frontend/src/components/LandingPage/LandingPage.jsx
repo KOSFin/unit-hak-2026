@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { createBoard, getOwnedBoards } from '../../api/boardsApi';
@@ -40,36 +40,24 @@ export default function LandingPage() {
     { value: 'forever', label: language === 'ru' ? 'Не удалять' : 'Do not delete' },
   ];
 
-  useEffect(() => {
-    if (!startOpen || !identity.id) {
-      return undefined;
+  const loadOwnedBoards = async () => {
+    if (!identity.id) {
+      return;
     }
 
-    let ignore = false;
     setBoardsLoading(true);
     setBoardsError(null);
 
-    getOwnedBoards(identity.id)
-      .then((boards) => {
-        if (!ignore) {
-          setOwnedBoards(boards);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setBoardsError(t('failedToLoadBoards', language));
-        }
-      })
-      .finally(() => {
-        if (!ignore) {
-          setBoardsLoading(false);
-        }
-      });
+    try {
+      const boards = await getOwnedBoards(identity.id);
+      setOwnedBoards(boards);
+    } catch {
+      setBoardsError(t('failedToLoadBoards', language));
+    } finally {
+      setBoardsLoading(false);
+    }
+  };
 
-    return () => {
-      ignore = true;
-    };
-  }, [identity.id, language, startOpen]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -135,6 +123,7 @@ export default function LandingPage() {
 
   const openStartModal = () => {
     setStartOpen(true);
+    void loadOwnedBoards();
   };
 
   const closeStartModal = () => {
