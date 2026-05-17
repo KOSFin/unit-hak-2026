@@ -9,10 +9,6 @@ export function reorderTasks(tasks, columns, taskId, targetColumnId, targetIndex
     buckets.get(task.column_id).push(task);
   });
 
-  buckets.forEach((list) => {
-    list.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-  });
-
   let movingTask = null;
   let sourceColumnId = null;
   buckets.forEach((list, columnId) => {
