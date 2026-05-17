@@ -229,18 +229,24 @@ export default function Board({
       onDragCancel={handleDragCancel}
     >
       <div className={styles.board}>
-        {columns.map((column) => (
-          <Column
-            key={column.id}
-            column={column}
-            tasks={localTasks.filter((task) => task.column_id === column.id)}
-            onCreateTask={onCreateTask}
-            onOpenTask={onOpenTask}
-            editingUsersMap={editingUsersMap}
-            draggingUsersMap={draggingUsersMap}
-            dragDisabled={dragDisabled}
-          />
-        ))}
+        {columns.map((column) => {
+          const columnTasks = localTasks
+            .filter((task) => task.column_id === column.id)
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+          
+          return (
+            <Column
+              key={column.id}
+              column={column}
+              tasks={columnTasks}
+              onCreateTask={onCreateTask}
+              onOpenTask={onOpenTask}
+              editingUsersMap={editingUsersMap}
+              draggingUsersMap={draggingUsersMap}
+              dragDisabled={dragDisabled}
+            />
+          );
+        })}
       </div>
       <DragOverlay
         dropAnimation={{

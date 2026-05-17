@@ -13,6 +13,7 @@ import { createRule, deleteRule, getRules, updateRule } from '../../api/rulesApi
 import { createTask, deleteTask, getTasks, moveTask, updateTask } from '../../api/tasksApi';
 import { uploadImage } from '../../api/uploadsApi';
 import { createRealtimeSocket } from '../../realtime/socket';
+import { createCrossTabSync } from '../../utils/crossTabSync';
 import { getGuestIdentity } from '../../utils/guest';
 import AdminPanel from '../AdminPanel/AdminPanel';
 import EventFlow from '../EventFlow/EventFlow';
@@ -108,6 +109,7 @@ export default function BoardPage() {
   });
 
   const socketRef = useRef(null);
+  const crossTabRef = useRef(null);
   const activeTaskView = taskView.boardId === publicBoardId
     ? taskView
     : { boardId: publicBoardId, ...DEFAULT_TASK_VIEW };
@@ -310,7 +312,97 @@ export default function BoardPage() {
     refreshRules,
     refreshTasks,
   ]);
+  // Cross-tab synchronization setup
+  useEffect(() => {
+    if (!publicBoardId) {
+      return undefined;
+    }
 
+    const crossTab = createCrossTabSync(publicBoardId);
+    crossTabRef.current = crossTab;
+
+    // Listen for task updates from other tabs
+    const unsubscribeTasks = crossTab.on('tasks-updated', (payload) => {
+      if (payload && Array.isArray(payload)) {
+        setTasks(payload);
+      }
+    });
+
+    // Listen for board state updates from other tabs
+    const unsubscribeBoard = crossTab.on('board-updated', (payload) => {
+      if (payload) {
+        setBoard(payload);
+        setColumns(payload.columns || []);
+      }
+    });
+
+    // Listen for notifications from other tabs
+    const unsubscribeNotifications = crossTab.on('notifications-updated', (payload) => {
+      if (payload && Array.isArray(payload)) {
+        setNotifications(payload);
+      }
+    });
+
+    // Listen for rules updates from other tabs
+    const unsubscribeRules = crossTab.on('rules-updated', (payload) => {
+      if (payload && Array.isArray(payload)) {
+        setRules(payload);
+      }
+    });
+
+    // Listen for incoming tasks updates from other tabs
+    const unsubscribeIncoming = crossTab.on('incoming-tasks-updated', (payload) => {
+      if (payload && Array.isArray(payload)) {
+        setIncomingTasks(payload);
+      }
+    });
+
+    return () => {
+      unsubscribeTasks();
+      unsubscribeBoard();
+      unsubscribeNotifications();
+      unsubscribeRules();
+      unsubscribeIncoming();
+      crossTab.dispose();
+      crossTabRef.current = null;
+    };
+  }, [publicBoardId]);
+
+  // Broadcast state changes to other tabs
+  useEffect(() => {
+    if (!crossTabRef.current) {
+      return;
+    }
+    crossTabRef.current.send('tasks-updated', tasks);
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!crossTabRef.current) {
+      return;
+    }
+    crossTabRef.current.send('board-updated', board);
+  }, [board]);
+
+  useEffect(() => {
+    if (!crossTabRef.current) {
+      return;
+    }
+    crossTabRef.current.send('notifications-updated', notifications);
+  }, [notifications]);
+
+  useEffect(() => {
+    if (!crossTabRef.current) {
+      return;
+    }
+    crossTabRef.current.send('rules-updated', rules);
+  }, [rules]);
+
+  useEffect(() => {
+    if (!crossTabRef.current) {
+      return;
+    }
+    crossTabRef.current.send('incoming-tasks-updated', incomingTasks);
+  }, [incomingTasks]);
   const sendWsUpdate = useCallback(
     (type, extra = {}) => {
       if (!board || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {

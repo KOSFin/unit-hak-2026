@@ -52,6 +52,54 @@
   opacity: 1;
 }
 
+.languageSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.languageLabel {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.languageOptions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.languageBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.languageBtn:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.languageBtnActive {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  font-weight: 600;
+}
+
+.flag {
+  font-size: 1.25rem;
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;

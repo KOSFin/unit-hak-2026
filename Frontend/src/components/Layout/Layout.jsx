@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import Button from '../Ui/Button';
 import NotificationsMenu from '../NotificationsMenu/NotificationsMenu';
 import ProfileModal from '../ProfileModal/ProfileModal';
@@ -131,9 +133,11 @@ export default function Layout({
   onSortModeChange,
   onResetTaskView,
   visibleTaskCount = 0,
+  // eslint-disable-next-line no-unused-vars
   totalTaskCount = 0,
   taskViewActive = false,
 }) {
+  const { language } = useLocale();
   const unreadCount = notifications.filter((notification) => !notification.read).length;
   const menuRef = useRef(null);
   const onlineRef = useRef(null);
@@ -198,7 +202,6 @@ export default function Layout({
         : realtimeStatus === 'error'
           ? 'Realtime offline'
           : 'Disconnected';
-  const filtersExpanded = filtersOpen || taskViewActive;
 
   return (
     <div className={styles.page}>
@@ -460,37 +463,45 @@ export default function Layout({
             <input
               value={searchQuery}
               onChange={(event) => onSearchQueryChange?.(event.target.value)}
-              placeholder="Search by task, tag, status, or card ID"
+              placeholder={t('search', language)}
             />
             {searchQuery ? (
               <button
                 type="button"
                 className={styles.clearSearch}
                 onClick={() => onSearchQueryChange?.('')}
-                aria-label="Clear search"
+                aria-label={t('clearSearch', language)}
+                title={t('clearSearch', language)}
               >
                 ×
               </button>
             ) : null}
+            {searchQuery && (
+              <span className={styles.searchCount}>
+                {visibleTaskCount}
+              </span>
+            )}
           </label>
 
           <button
             type="button"
-            className={`${styles.toolbarChip} ${filtersExpanded ? styles.toolbarChipActive : ''}`}
+            className={`${styles.toolbarChip} ${filtersOpen ? styles.toolbarChipActive : ''} ${taskViewActive ? styles.toolbarChipWarning : ''}`}
             onClick={() => setFiltersOpen((current) => !current)}
+            title={taskViewActive ? t('dragPausedWarning', language) : ''}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
             </svg>
-            <span>Filters</span>
+            <span>{t('filters', language)}</span>
+            {taskViewActive && <span className={styles.chipBadge}>!</span>}
           </button>
 
-          {filtersExpanded ? (
-            <>
+          {filtersOpen ? (
+            <div className={styles.filterPanel}>
               <label className={styles.compactField}>
-                <span>Column</span>
+                <span>{t('columnFilter', language)}</span>
                 <select value={columnFilter} onChange={(event) => onColumnFilterChange?.(event.target.value)}>
-                  <option value="ALL">All columns</option>
+                  <option value="ALL">{t('allColumns', language)}</option>
                   {columns.map((column) => (
                     <option key={column.id} value={column.id}>
                       {column.title}
@@ -500,49 +511,45 @@ export default function Layout({
               </label>
 
               <label className={styles.compactField}>
-                <span>Priority</span>
+                <span>{t('priorityFilter', language)}</span>
                 <select
                   value={priorityFilter}
                   onChange={(event) => onPriorityFilterChange?.(event.target.value)}
                 >
-                  <option value="ALL">Any priority</option>
-                  <option value="CRITICAL">Critical</option>
-                  <option value="HIGH">High</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="LOW">Low</option>
+                  <option value="ALL">{t('anyPriority', language)}</option>
+                  <option value="CRITICAL">{t('critical', language)}</option>
+                  <option value="HIGH">{t('high', language)}</option>
+                  <option value="MEDIUM">{t('medium', language)}</option>
+                  <option value="LOW">{t('low', language)}</option>
                 </select>
               </label>
 
               <label className={styles.compactField}>
-                <span>Sort</span>
+                <span>{t('sortBy', language)}</span>
                 <select value={sortMode} onChange={(event) => onSortModeChange?.(event.target.value)}>
-                  <option value="BOARD_ORDER">Board order</option>
-                  <option value="UPDATED_DESC">Recently updated</option>
-                  <option value="PRIORITY_DESC">Priority first</option>
-                  <option value="DEADLINE_ASC">Nearest deadline</option>
-                  <option value="TITLE_ASC">Title A-Z</option>
+                  <option value="BOARD_ORDER">{t('boardOrder', language)}</option>
+                  <option value="UPDATED_DESC">{t('recentlyUpdated', language)}</option>
+                  <option value="PRIORITY_DESC">{t('priorityFirst', language)}</option>
+                  <option value="DEADLINE_ASC">{t('nearestDeadline', language)}</option>
+                  <option value="TITLE_ASC">{t('titleAZ', language)}</option>
                 </select>
               </label>
-            </>
-          ) : null}
 
-          <div className={styles.toolbarMeta}>
-            <span className={styles.metaPill}>
-              {visibleTaskCount} of {totalTaskCount} tasks
-            </span>
-            <span className={`${styles.metaPill} ${taskViewActive ? styles.metaPillWarning : ''}`}>
-              {taskViewActive ? 'Drag paused while filters are active' : 'Live board order'}
-            </span>
-          </div>
-
-          {taskViewActive ? (
-            <Button variant="ghost" size="sm" onClick={onResetTaskView} className={styles.toolbarButton}>
-              Reset view
-            </Button>
+              {taskViewActive && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onResetTaskView}
+                  className={styles.resetButton}
+                >
+                  {t('resetView', language)}
+                </Button>
+              )}
+            </div>
           ) : null}
 
           <Button size="sm" onClick={onCreateTask} className={styles.createTaskButton}>
-            Create task
+            {t('createTask', language)}
           </Button>
         </section>
       </div>

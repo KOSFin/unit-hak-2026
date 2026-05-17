@@ -1,6 +1,8 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import Button from '../Ui/Button';
 import TaskCard from '../TaskCard/TaskCard';
 import styles from './Column.module.css';
@@ -14,6 +16,7 @@ export default function Column({
   draggingUsersMap,
   dragDisabled = false,
 }) {
+  const { language } = useLocale();
   const { setNodeRef } = useDroppable({
     id: `column:${column.id}`,
     data: {
@@ -50,7 +53,7 @@ export default function Column({
 
       <div className={styles.footer}>
         <Button variant="ghost" size="sm" onClick={() => onCreateTask(column.id)}>
-          + Add task
+          {t('addTask', language)}
         </Button>
       </div>
     </div>

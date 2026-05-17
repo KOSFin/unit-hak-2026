@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 
 import { updateGuestProfile as updateGuestProfileRequest } from '../../api/guestApi';
 import { uploadImage } from '../../api/uploadsApi';
+import { useLocale } from '../../contexts/LocaleContext';
+import { t } from '../../utils/i18n';
 import Modal from '../Ui/Modal';
 import Input from '../Ui/Input';
 import Button from '../Ui/Button';
@@ -9,6 +11,7 @@ import { updateGuestIdentity } from '../../utils/guest';
 import styles from './ProfileModal.module.css';
 
 export default function ProfileModal({ identity, onClose, onUpdate }) {
+  const { language, setLanguage } = useLocale();
   const [displayName, setDisplayName] = useState(identity.displayName || '');
   const [avatarUrl, setAvatarUrl] = useState(identity.avatarUrl);
   const [pending, setPending] = useState(false);
@@ -54,13 +57,13 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
 
   return (
     <Modal
-      title="Guest Profile"
+      title={t('guestProfile', language)}
       onClose={onClose}
       footer={
         <div className={styles.footer}>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose}>{t('cancel', language)}</Button>
           <Button onClick={handleSubmit} disabled={pending || !displayName.trim()}>
-            Save Profile
+            {t('save', language)}
           </Button>
         </div>
       }
@@ -77,7 +80,7 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
             ) : (
               <span className={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</span>
             )}
-            <div className={styles.avatarOverlay}>Change</div>
+            <div className={styles.avatarOverlay}>{t('changeAvatar', language)}</div>
           </div>
           <input 
             type="file" 
@@ -89,11 +92,37 @@ export default function ProfileModal({ identity, onClose, onUpdate }) {
         </div>
 
         <Input 
-          label="Display Name"
+          label={t('displayName', language)}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="Guest 123"
+          placeholder={`${t('guest', language)} 123`}
         />
+
+        <div className={styles.languageSection}>
+          <label className={styles.languageLabel}>
+            <span>{t('selectLanguage', language)}</span>
+          </label>
+          <div className={styles.languageOptions}>
+            <button
+              type="button"
+              className={`${styles.languageBtn} ${language === 'ru' ? styles.languageBtnActive : ''}`}
+              onClick={() => setLanguage('ru')}
+              title="Русский"
+            >
+              <span className={styles.flag}>🇷🇺</span>
+              <span>Русский</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.languageBtn} ${language === 'en' ? styles.languageBtnActive : ''}`}
+              onClick={() => setLanguage('en')}
+              title="English"
+            >
+              <span className={styles.flag}>🇬🇧</span>
+              <span>English</span>
+            </button>
+          </div>
+        </div>
       </div>
     </Modal>
   );
