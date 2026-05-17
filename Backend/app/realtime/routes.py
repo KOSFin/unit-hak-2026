@@ -2,10 +2,87 @@ import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.schemas.common import RealtimeReferenceResponse
+
 from app.realtime.connection_manager import manager
 
 router = APIRouter(tags=["realtime"])
 logger = logging.getLogger(__name__)
+
+
+@router.get(
+    "/api/realtime",
+    response_model=RealtimeReferenceResponse,
+    summary="Realtime contract reference",
+    description="Documents websocket URLs, accepted client events, and emitted server events for Swagger consumers.",
+)
+def realtime_reference() -> RealtimeReferenceResponse:
+    return RealtimeReferenceResponse(
+        primary_url="/ws",
+        fallback_urls=["/api/ws"],
+        accepted_client_events=[
+            {
+                "type": "presence.join",
+                "direction": "client->server",
+                "description": "Join a board presence channel and receive a snapshot.",
+            },
+            {
+                "type": "presence.update",
+                "direction": "client->server",
+                "description": "Update guest metadata such as display name, color, or avatar.",
+            },
+            {
+                "type": "editing.started",
+                "direction": "client->server",
+                "description": "Mark a guest as editing a task.",
+            },
+            {
+                "type": "editing.ended",
+                "direction": "client->server",
+                "description": "Clear editing state for a guest.",
+            },
+            {
+                "type": "drag.started",
+                "direction": "client->server",
+                "description": "Mark a guest as dragging a task.",
+            },
+            {
+                "type": "drag.ended",
+                "direction": "client->server",
+                "description": "Clear dragging state for a guest.",
+            },
+        ],
+        emitted_server_events=[
+            {
+                "type": "presence.snapshot",
+                "direction": "server->client",
+                "description": "Full presence snapshot after a successful join.",
+            },
+            {
+                "type": "presence.updated",
+                "direction": "server->client",
+                "description": "Presence state after an update, edit, drag, or disconnect.",
+            },
+            {
+                "type": "system.error",
+                "direction": "server->client",
+                "description": "Validation or protocol error emitted by the websocket gateway.",
+            },
+        ],
+        sample_join_message={
+            "type": "presence.join",
+            "board_id": "board-123",
+            "user": {"guest_id": "guest-42", "display_name": "Alex"},
+        },
+        sample_snapshot_message={
+            "type": "presence.snapshot",
+            "payload": {"board_id": "board-123", "users": [], "editing": [], "dragging": []},
+        },
+        sample_error_message={
+            "type": "system.error",
+            "payload": {"message": "Missing board_id"},
+        },
+    )
 
 
 async def _handle_websocket_session(websocket: WebSocket) -> None:

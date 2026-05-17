@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.openapi import OPENAPI_TAGS, install_openapi
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
@@ -41,7 +42,16 @@ def create_app() -> FastAPI:
     uploads_dir.mkdir(parents=True, exist_ok=True)
     setup_logging(settings.log_level)
 
-    app = FastAPI(title="FlowBoard API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="FlowBoard API",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
+        openapi_url="/api/openapi.json",
+        openapi_tags=OPENAPI_TAGS,
+    )
+    install_openapi(app, settings)
 
     cors_origins = settings.cors_origins()
     if cors_origins:

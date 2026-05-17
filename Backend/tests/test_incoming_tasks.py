@@ -63,6 +63,34 @@ async def test_incoming_tasks_are_filtered_by_board(async_client):
     assert [item["external_id"] for item in listed_a.json()] == ["board-a-incoming"]
 
 
+@pytest.mark.anyio
+async def test_reprocess_incoming_task(async_client):
+    board = await async_client.post("/api/boards", json={"name": "Board A", "retention_days": 3})
+    created = await async_client.post(
+        "/api/incoming-tasks",
+        json={
+            "external_id": "reprocess-1",
+            "board_id": board.json()["id"],
+            "raw_payload": {"title": "Imported via retry", "tags": ["api"]},
+        },
+    )
+
+    assert created.status_code == 201
+
+    retried = await async_client.post(
+        f"/api/incoming-tasks/{created.json()['id']}/reprocess",
+        params={"board_id": board.json()["id"]},
+    )
+    assert retried.status_code == 200
+    assert retried.json()["status"] == "PROCESSED"
+
+
+@pytest.mark.anyio
+async def test_reprocess_incoming_task_not_found(async_client):
+    response = await async_client.post("/api/incoming-tasks/missing/reprocess")
+    assert response.status_code == 404
+
+
 def test_process_incoming_tasks(db_session, seeded_board):
     service = IncomingTaskService(db_session)
     valid = service.create_task(

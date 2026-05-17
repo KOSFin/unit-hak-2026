@@ -27,7 +27,6 @@ build/
 
 # Env files
 .env
-.env.*
 !.env.compose.example
 
 # Logs

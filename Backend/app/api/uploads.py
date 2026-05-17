@@ -5,7 +5,9 @@ import uuid
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from PIL import Image
 
+from app.api.openapi import error_response
 from app.core.config import get_settings
+from app.schemas.common import UploadResponse
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
@@ -37,8 +39,21 @@ def _compress_and_save_image(
     return file_path
 
 
-@router.post("")
-async def upload_image(file: UploadFile = File(...)):
+@router.post(
+    "",
+    response_model=UploadResponse,
+    summary="Upload image asset",
+    description=(
+        "Uploads an image, stores it in the configured uploads directory, and attempts server-side "
+        "compression to WEBP or JPEG. The returned path can be used in board and guest profile payloads."
+    ),
+    responses={
+        400: error_response("The uploaded file is not an image.", "File must be an image"),
+        413: error_response("The uploaded image exceeds the configured maximum size.", "File too large"),
+        422: error_response("Multipart payload validation failed.", "Field required"),
+    },
+)
+async def upload_image(file: UploadFile = File(..., description="Image file to upload.")) -> UploadResponse:
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be an image")
 

@@ -31,6 +31,9 @@ class IncomingTaskService:
         self.notification_service = NotificationService(session)
         self.event_service = EventService(session)
 
+    def get_task(self, incoming_id: str) -> IncomingTask | None:
+        return self.repo.get_by_id(incoming_id)
+
     def list_tasks(
         self,
         skip: int = 0,

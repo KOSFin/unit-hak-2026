@@ -113,3 +113,33 @@ def test_create_app_configures_cors(monkeypatch):
     monkeypatch.setattr("app.main.setup_logging", lambda _level: None)
     app = create_app()
     assert app.title == "FlowBoard API"
+    assert app.docs_url == "/api/docs"
+    assert app.redoc_url == "/api/redoc"
+    assert app.openapi_url == "/api/openapi.json"
+
+
+def test_create_app_exposes_openapi_docs(monkeypatch):
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "seed_demo_data": False,
+                "log_level": "info",
+                "backend_public_url": None,
+                "backend_base_url": lambda self: "http://127.0.0.1:8000",
+                "cors_origins": lambda self: [],
+                "uploads_filesystem_path": lambda self: Path("uploads"),
+                "uploads_url_path": lambda self: "uploads",
+            },
+        )(),
+    )
+    monkeypatch.setattr("app.main.setup_logging", lambda _level: None)
+    app = create_app()
+    schema = app.openapi()
+
+    assert schema["info"]["title"] == "FlowBoard API"
+    assert "/api/incoming-tasks/{incoming_task_id}/reprocess" in schema["paths"]
+    assert "/api/realtime" in schema["paths"]
+    assert schema["x-websocket-endpoints"]["primary"].endswith("/ws")
