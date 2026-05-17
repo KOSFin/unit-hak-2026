@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from app.core.config import get_settings
 from app.queue.rabbitmq import EVENT_EXCHANGE, get_rabbitmq_connection
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,11 @@ class RabbitMQConsumer:
         self.channel = None
 
     def connect(self) -> bool:
-        self.connection = get_rabbitmq_connection()
+        settings = get_settings()
+        self.connection = get_rabbitmq_connection(
+            max_attempts=settings.rabbitmq_connect_retries,
+            retry_delay_seconds=settings.rabbitmq_retry_delay_seconds,
+        )
         if not self.connection:
             logger.warning("RabbitMQ consumer connection unavailable")
             return False

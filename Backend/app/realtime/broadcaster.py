@@ -7,6 +7,7 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from app.core.config import get_settings
 from app.queue.rabbitmq import EVENT_EXCHANGE, get_rabbitmq_connection
 from app.realtime.connection_manager import manager
 from app.schemas.event import DomainEventSchema, RealtimeEventSchema
@@ -56,9 +57,13 @@ class RealtimeRelay(threading.Thread):
         self._stop_event = threading.Event()
 
     def run(self) -> None:
-        self.connection = get_rabbitmq_connection()
+        settings = get_settings()
+        self.connection = get_rabbitmq_connection(
+            max_attempts=settings.rabbitmq_connect_retries,
+            retry_delay_seconds=settings.rabbitmq_retry_delay_seconds,
+        )
         if not self.connection:
-            logger.warning("Realtime relay disabled because RabbitMQ is unavailable")
+            logger.warning("Realtime relay disabled because RabbitMQ remained unavailable")
             return
 
         self.channel = self.connection.channel()

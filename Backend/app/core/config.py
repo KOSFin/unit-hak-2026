@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     rabbitmq_url: str | None = None
     rabbitmq_host: str | None = None
     rabbitmq_port: int = 5672
+    rabbitmq_connect_retries: int = 15
+    rabbitmq_retry_delay_seconds: float = 2.0
     backend_cors_origins: str = ""
     jwt_secret: str = "change_me_even_if_auth_is_simple"
     seed_demo_data: bool = False

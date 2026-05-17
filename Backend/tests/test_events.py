@@ -173,13 +173,13 @@ def test_rabbitmq_connection_and_consumer(monkeypatch):
         def close(self):
             self.is_closed = True
 
-    monkeypatch.setattr("app.queue.consumer.get_rabbitmq_connection", lambda: None)
+    monkeypatch.setattr("app.queue.consumer.get_rabbitmq_connection", lambda **_kwargs: None)
     consumer = RabbitMQConsumer("task_events")
     assert consumer.consume(lambda *_args: None) is False
     consumer.close()
 
     connection = ConnectionStub()
-    monkeypatch.setattr("app.queue.consumer.get_rabbitmq_connection", lambda: connection)
+    monkeypatch.setattr("app.queue.consumer.get_rabbitmq_connection", lambda **_kwargs: connection)
     consumer = RabbitMQConsumer("task_events")
     assert consumer.connect() is True
     assert consumer.consume(lambda *_args: None) is True
