@@ -123,8 +123,8 @@
   content: attr(data-title);
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 28%, rgba(246, 246, 243, 0.72) 72%, rgba(246, 246, 243, 0.95));
-  backdrop-filter: blur(0.09em);
+  color: var(--text-primary);
+  filter: blur(0.055em);
   mask-image: linear-gradient(180deg, transparent 18%, rgba(0, 0, 0, 0.18) 46%, #000 100%);
   pointer-events: none;
 }

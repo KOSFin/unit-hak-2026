@@ -248,7 +248,7 @@ export default function LandingPage() {
       </section>
 
       <footer className={styles.footer}>
-        <p>(c) Pencil team.</p>
+        <p>(с) Pencil team.</p>
         <p>{t('createdForUnitHack', language)}</p>
       </footer>
 
