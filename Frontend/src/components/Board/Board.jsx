@@ -3,6 +3,7 @@ import {
   DragOverlay,
   PointerSensor,
   closestCorners,
+  pointerWithin,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -12,6 +13,66 @@ import Column from '../Column/Column';
 import { TaskCardPreview } from '../TaskCard/TaskCard';
 import { reorderTasks } from '../../utils/reorderTasks';
 import styles from './Board.module.css';
+
+function isTaskContainer(container) {
+  return container?.data?.current?.type === 'task';
+}
+
+function isColumnContainer(container) {
+  return container?.data?.current?.type === 'column';
+}
+
+function getClosestTaskCollisions(args, columnId = null) {
+  const taskContainers = args.droppableContainers.filter((container) => {
+    if (!isTaskContainer(container)) {
+      return false;
+    }
+
+    if (!columnId) {
+      return true;
+    }
+
+    return container.data.current?.columnId === columnId;
+  });
+
+  if (taskContainers.length === 0) {
+    return [];
+  }
+
+  return closestCorners({
+    ...args,
+    droppableContainers: taskContainers,
+  });
+}
+
+function collisionDetectionStrategy(args) {
+  const pointerCollisions = pointerWithin(args);
+  const taskPointerCollisions = pointerCollisions.filter(({ id }) => String(id).startsWith('task:'));
+  if (taskPointerCollisions.length > 0) {
+    return taskPointerCollisions;
+  }
+
+  const hoveredColumn = pointerCollisions.find(({ id }) => String(id).startsWith('column:'));
+  if (hoveredColumn) {
+    const hoveredColumnId = String(hoveredColumn.id).replace('column:', '');
+    const columnTaskCollisions = getClosestTaskCollisions(args, hoveredColumnId);
+    if (columnTaskCollisions.length > 0) {
+      return columnTaskCollisions;
+    }
+
+    return [hoveredColumn];
+  }
+
+  const taskCollisions = getClosestTaskCollisions(args);
+  if (taskCollisions.length > 0) {
+    return taskCollisions;
+  }
+
+  return closestCorners({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(isColumnContainer),
+  });
+}
 
 export default function Board({
   columns,
@@ -195,7 +256,7 @@ export default function Board({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetectionStrategy}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
