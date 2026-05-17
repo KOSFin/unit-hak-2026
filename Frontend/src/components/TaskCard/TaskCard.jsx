@@ -22,13 +22,50 @@ function getPriorityLabel(priority, locale) {
   return labels[priority] || priority;
 }
 
+function getInitial(name = '') {
+  return name.trim().charAt(0).toUpperCase() || '?';
+}
+
+function ActivityIndicator({ user, label }) {
+  if (!user) return null;
+
+  return (
+    <div className={styles.activityBadge}>
+      <span
+        className={styles.activityAvatar}
+        style={{
+          backgroundColor: user.color || 'var(--surface-muted)',
+          backgroundImage: user.avatar_url ? `url(${user.avatar_url})` : 'none',
+        }}
+        aria-hidden="true"
+      >
+        {!user.avatar_url && getInitial(user.display_name)}
+      </span>
+      <span className={styles.activityText}>
+        <span className={styles.activityLabel}>{label}</span>
+        <span className={styles.activityName}>{user.display_name}</span>
+      </span>
+    </div>
+  );
+}
+
 function TaskCardContent({ task, editingUsers, draggingUsers, locale }) {
   const formatDeadline = (value) => {
     return formatDate(value, locale);
   };
+  const activityUser = editingUsers?.[0] ?? draggingUsers?.[0] ?? null;
+  const activityLabel = editingUsers?.length
+    ? t('editingBy', locale)
+    : draggingUsers?.length
+      ? t('movingBy', locale)
+      : null;
 
   return (
     <>
+      {activityUser && activityLabel ? (
+        <ActivityIndicator user={activityUser} label={activityLabel} />
+      ) : null}
+
       <div className={styles.header}>
         <span className={styles.id}>#{task.id.slice(0, 8)}</span>
         <Badge tone={getPriorityTone(task.priority)}>{getPriorityLabel(task.priority, locale)}</Badge>
@@ -49,20 +86,6 @@ function TaskCardContent({ task, editingUsers, draggingUsers, locale }) {
         <span>{task.status}</span>
         <span>{task.deadline ? formatDeadline(task.deadline) : t('noDeadline', locale)}</span>
       </div>
-      
-      {editingUsers?.length > 0 && (
-         <div className={styles.indicatorBadge}>
-            <span className={styles.indicatorDot} style={{backgroundColor: editingUsers[0].color}}></span>
-            {t('editingBy', locale)} {editingUsers[0].display_name}
-         </div>
-      )}
-      
-      {draggingUsers?.length > 0 && !editingUsers?.length && (
-         <div className={styles.indicatorBadge}>
-            <span className={styles.indicatorDot} style={{backgroundColor: draggingUsers[0].color}}></span>
-            {t('movingBy', locale)} {draggingUsers[0].display_name}
-         </div>
-      )}
     </>
   );
 }
