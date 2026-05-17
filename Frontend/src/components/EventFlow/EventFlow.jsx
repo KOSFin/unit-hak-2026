@@ -351,7 +351,8 @@ export default function EventFlow({ boardId, onlineUsers = [] }) {
                     <div className={styles.eventItem}>
                       <div className={styles.timeline}>
                         <div className={styles.dot}></div>
-                        {clusterIndex < clusters.length - 1 || idx < groups.length - 1 ? (
+                        {clusterIndex < group.clusters.length - 1 ||
+                        idx < renderedGroups.length - 1 ? (
                           <div className={styles.line}></div>
                         ) : null}
                       </div>
